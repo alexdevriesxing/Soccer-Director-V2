@@ -1,0 +1,88 @@
+// Youth Event Service
+import { PrismaClient } from '@prisma/client';
+const prisma = new PrismaClient();
+
+// Placeholder for event storage (could be a DB table in a full implementation)
+const eventStore: any[] = [];
+
+export const generateOffFieldEvent = async (playerId: number, type: string, description: string) => {
+  // TODO: Store in DB in production
+  const event = { id: eventStore.length + 1, playerId, type, description, resolved: false, createdAt: new Date() };
+  eventStore.push(event);
+  return event;
+};
+
+export const getEventsForClub = async (clubId: number) => {
+  // TODO: Filter by club's youth players
+  return eventStore.filter(e => e.playerId && e.resolved === false);
+};
+
+// Generate random events for all youth players in a club
+export const generateRandomEventsForClub = async (clubId: number) => {
+  // Get all youth players (age <= 21)
+  const players = await prisma.player.findMany({ where: { clubId, age: { lte: 21 } } });
+  type EventType = {
+    type: string;
+    effect: (p: { academicGrade?: number }) => any;
+    description: string;
+  };
+  const eventTypes: EventType[] = [
+    { type: 'homesickness', effect: p => ({ morale: { decrement: 5 } }), description: 'is feeling homesick.' },
+    { type: 'discipline', effect: p => ({ morale: { decrement: 3 } }), description: 'was late to training.' },
+    { type: 'academic', effect: p => ({ academicGrade: { decrement: 0.5 } }), description: 'is struggling academically.' },
+    { type: 'breakthrough', effect: p => ({ skill: { increment: 2 }, morale: { increment: 5 } }), description: 'had a breakthrough in training!' }
+  ];
+  const generatedEvents = [];
+  for (const player of players) {
+    if (Math.random() < 0.2) { // 20% chance for an event per player
+      const eventType = randomFromArray(eventTypes);
+      // Store event in memory (replace with DB in production)
+      const event = { id: eventStore.length + 1, playerId: player.id, type: eventType.type, description: `${player.name} ${eventType.description}`, resolved: false, createdAt: new Date() };
+      eventStore.push(event);
+      generatedEvents.push(event);
+    }
+  }
+  return generatedEvents;
+};
+
+// Intervene in an event: update player attributes based on event type
+export const interveneInEvent = async (eventId: number, action: string) => {
+  const event = eventStore.find(e => e.id === eventId);
+  if (!event || event.resolved) return null;
+  // Find the player
+  const player = await prisma.player.findUnique({ where: { id: event.playerId } });
+  if (!player) return null;
+  // Apply intervention effect based on event type and action
+  if (event.type === 'homesickness' && action === 'counsel') {
+    await prisma.player.update({ where: { id: player.id }, data: { morale: { increment: 5 } } });
+  } else if (event.type === 'discipline' && action === 'discipline') {
+    await prisma.player.update({ where: { id: player.id }, data: { morale: { decrement: 1 } } });
+  } else if (event.type === 'academic' && action === 'tutor') {
+    // If academicGrade is null, set to 6.0 first
+    if (player.academicGrade == null) {
+      await prisma.player.update({ where: { id: player.id }, data: { academicGrade: 6.0 } as any });
+    }
+    await prisma.player.update({ where: { id: player.id }, data: { academicGrade: { increment: 0.5 } } as any });
+  } else if (event.type === 'breakthrough' && action === 'praise') {
+    await prisma.player.update({ where: { id: player.id }, data: { morale: { increment: 2 } } });
+  }
+  event.resolved = true;
+  return event;
+};
+
+function randomFromArray<T>(arr: T[]): T {
+  return arr[Math.floor(Math.random() * arr.length)];
+}
+
+// Automation logic placeholder
+export const automateEventHandling = async (clubId: number) => {
+  // Find unresolved events for this club's players
+  const players = await prisma.player.findMany({ where: { clubId } });
+  const playerIds = players.map((p: any) => p.id);
+  // Assume events are now stored in DB: OffFieldEvent
+  const events = await prisma.offFieldEvent.findMany({ where: { playerId: { in: playerIds }, resolved: false } });
+  for (const event of events) {
+    await prisma.offFieldEvent.update({ where: { id: event.id }, data: { resolved: true, resolvedAt: new Date() } });
+  }
+  return { resolved: events.length };
+}; 

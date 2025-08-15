@@ -1,0 +1,10 @@
+{
+  "error.jong_team_not_found": "找不到青年隊",
+  "error.failed_to_fetch_jong_team": "無法獲取青年隊數據",
+  "error.failed_to_fetch_squad": "無法獲取青年隊球員",
+  "error.failed_to_fetch_first_squad": "無法獲取一線隊球員",
+  "error.failed_to_fetch_league_table": "無法獲取聯賽排名",
+  "error.failed_to_fetch_fixtures": "無法獲取賽程",
+  "success.player_promoted": "球員晉升成功",
+  "validation.invalid_club_id": "無效的俱樂部ID"
+} 

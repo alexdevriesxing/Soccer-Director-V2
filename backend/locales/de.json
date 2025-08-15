@@ -1,0 +1,10 @@
+{
+  "error.jong_team_not_found": "Jong-Team nicht gefunden",
+  "error.failed_to_fetch_jong_team": "Fehler beim Abrufen der Jong-Team-Daten",
+  "error.failed_to_fetch_squad": "Fehler beim Abrufen des Jong-Kaders",
+  "error.failed_to_fetch_first_squad": "Fehler beim Abrufen des ersten Kaders",
+  "error.failed_to_fetch_league_table": "Fehler beim Abrufen der Ligatabelle",
+  "error.failed_to_fetch_fixtures": "Fehler beim Abrufen der Spielpläne",
+  "success.player_promoted": "Spieler erfolgreich befördert",
+  "validation.invalid_club_id": "Ungültige Club-ID"
+} 

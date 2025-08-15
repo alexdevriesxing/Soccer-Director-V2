@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Test Page</title>
+  <script>
+    window.addEventListener('load', function() {
+      console.log('Page loaded. Checking for external requests...');
+      
+      // Log all network requests
+      const originalFetch = window.fetch;
+      window.fetch = function(resource, init) {
+        console.log('Fetching:', resource);
+        return originalFetch.apply(this, arguments);
+      };
+      
+      // Log image loads
+      const observer = new PerformanceObserver((list) => {
+        list.getEntries().forEach(entry => {
+          console.log('Resource loaded:', entry.name);
+        });
+      });
+      observer.observe({ entryTypes: ['resource'] });
+      
+      console.log('Monitoring started. Check browser console for network requests.');
+    });
+  </script>
+</head>
+<body>
+  <h1>Test Page</h1>
+  <p>Check the browser console for network requests.</p>
+  <div id="root"></div>
+  <script src="/static/js/bundle.js"></script>
+</body>
+</html>

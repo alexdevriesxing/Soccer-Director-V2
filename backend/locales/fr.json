@@ -1,0 +1,10 @@
+{
+  "error.jong_team_not_found": "Équipe Jong introuvable",
+  "error.failed_to_fetch_jong_team": "Échec de la récupération des données de l'équipe Jong",
+  "error.failed_to_fetch_squad": "Échec de la récupération de l'effectif Jong",
+  "error.failed_to_fetch_first_squad": "Échec de la récupération du premier effectif",
+  "error.failed_to_fetch_league_table": "Échec de la récupération du classement",
+  "error.failed_to_fetch_fixtures": "Échec de la récupération des matchs",
+  "success.player_promoted": "Joueur promu avec succès",
+  "validation.invalid_club_id": "ID de club invalide"
+} 

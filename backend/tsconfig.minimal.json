@@ -1,0 +1,7 @@
+{
+  "extends": "./tsconfig.json",
+  "include": ["src/minimal-server.ts"],
+  "compilerOptions": {
+    "outDir": "./dist/minimal"
+  }
+}

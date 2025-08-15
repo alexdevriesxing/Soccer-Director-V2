@@ -1,0 +1,10 @@
+{
+  "error.jong_team_not_found": "종 팀을 찾을 수 없습니다",
+  "error.failed_to_fetch_jong_team": "종 팀 데이터를 가져오지 못했습니다",
+  "error.failed_to_fetch_squad": "종 팀 스쿼드를 가져오지 못했습니다",
+  "error.failed_to_fetch_first_squad": "1군 스쿼드를 가져오지 못했습니다",
+  "error.failed_to_fetch_league_table": "리그 테이블을 가져오지 못했습니다",
+  "error.failed_to_fetch_fixtures": "경기 일정을 가져오지 못했습니다",
+  "success.player_promoted": "선수가 성공적으로 승격되었습니다",
+  "validation.invalid_club_id": "잘못된 클럽 ID"
+} 

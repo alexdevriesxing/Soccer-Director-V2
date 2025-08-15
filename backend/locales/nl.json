@@ -1,0 +1,10 @@
+{
+  "error.jong_team_not_found": "Jong team niet gevonden",
+  "error.failed_to_fetch_jong_team": "Kan Jong teamgegevens niet ophalen",
+  "error.failed_to_fetch_squad": "Kan Jong selectie niet ophalen",
+  "error.failed_to_fetch_first_squad": "Kan eerste selectie niet ophalen",
+  "error.failed_to_fetch_league_table": "Kan ranglijst niet ophalen",
+  "error.failed_to_fetch_fixtures": "Kan wedstrijden niet ophalen",
+  "success.player_promoted": "Speler succesvol gepromoveerd",
+  "validation.invalid_club_id": "Ongeldig club-ID"
+} 

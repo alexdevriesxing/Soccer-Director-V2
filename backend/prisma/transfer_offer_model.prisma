@@ -1,0 +1,39 @@
+
+// Unified TransferOffer model with all necessary fields
+model TransferOffer {
+  id                Int               @id @default(autoincrement())
+  player            Player            @relation("PlayerTransferOffers", fields: [playerId], references: [id])
+  playerId          Int
+  fromClub          Club              @relation("FromClubTransferOffers", fields: [fromClubId], references: [id])
+  fromClubId        Int
+  toClub            Club              @relation("ToClubTransferOffers", fields: [toClubId], references: [id])
+  toClubId          Int
+  status            OfferStatus       @default(PENDING)
+  amount            Float             // Transfer fee amount
+  isLoan            Boolean           @default(false)
+  loanEndDate       DateTime?         // For loan offers
+  wageContribution  Float?            // Percentage of wages to be paid by the loaning club
+  transferFee       Float?            // For permanent transfers with installments
+  addonClauses      Json?             // Performance-based addons
+  message           String?           // Optional message with the offer
+  response          String?           // Optional response from the seller
+  initiator         String?           // 'user' or 'AI'
+  contractLength    Int?              // In years
+  deadline          DateTime?         // When this offer expires
+  history           Json?             // JSON array of status changes
+  isLoanWithOption  Boolean           @default(false) // If the loan includes an option to buy
+  optionToBuyFee    Float?            // Fixed fee for the option to buy
+  counteredAmount   Float?            // Counter offer amount
+  transferListing   TransferListing?  @relation(fields: [transferListingId], references: [id])
+  transferListingId Int?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  @@index([playerId])
+  @@index([fromClubId])
+  @@index([toClubId])
+  @@index([transferListingId])
+  @@index([status])
+  @@index([createdAt])
+  @@index([deadline])
+}

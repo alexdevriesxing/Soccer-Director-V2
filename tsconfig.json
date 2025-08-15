@@ -1,0 +1,10 @@
+{
+  "extends": "./frontend/tsconfig.json",
+  "compilerOptions": {
+    "target": "es2015",
+    "module": "commonjs",
+    "downlevelIteration": true
+  },
+  "include": ["frontend/src", "backend/src", "frontend/types", "backend/types", "src/routes/transferOffers.ts", "src/services/transferOfferService.ts"],
+  "exclude": ["node_modules", "dist", "build"]
+}

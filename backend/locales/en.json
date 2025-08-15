@@ -1,0 +1,10 @@
+{
+  "error.jong_team_not_found": "Jong team not found",
+  "error.failed_to_fetch_jong_team": "Failed to fetch Jong team data",
+  "error.failed_to_fetch_squad": "Failed to fetch Jong squad",
+  "error.failed_to_fetch_first_squad": "Failed to fetch first squad",
+  "error.failed_to_fetch_league_table": "Failed to fetch league table",
+  "error.failed_to_fetch_fixtures": "Failed to fetch fixtures",
+  "success.player_promoted": "Player promoted successfully",
+  "validation.invalid_club_id": "Invalid club ID"
+} 

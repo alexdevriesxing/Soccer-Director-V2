@@ -1,0 +1,19 @@
+model TransferListing {
+  id               Int           @id @default(autoincrement())
+  player           Player        @relation(fields: [playerId], references: [id])
+  playerId         Int
+  club             Club          @relation(fields: [clubId], references: [id])
+  clubId           Int
+  askingPrice      Int
+  listingType      ListingType
+  loanFee          Int?
+  wageContribution Int?
+  status           ListingStatus @default(ACTIVE)
+  deadline         DateTime
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+  offers           TransferOffer[]
+}
+
+
+
