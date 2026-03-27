@@ -17,7 +17,6 @@ on:
 
 jobs:
   deploy:
-    if: ${{ vars.FLY_APP_NAME != '' && secrets.FLY_API_TOKEN != '' }}
     runs-on: ubuntu-latest
     concurrency: fly-production
     permissions:
@@ -27,10 +26,30 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Check Fly deployment configuration
+        id: config
+        run: |
+          if [ -n "${FLY_APP_NAME}" ] && [ -n "${FLY_API_TOKEN}" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "Fly deployment is not configured for this repository."
+            echo "Set GitHub variable FLY_APP_NAME and secret FLY_API_TOKEN to enable deploys."
+          fi
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+          FLY_APP_NAME: ${{ vars.FLY_APP_NAME }}
+
       - name: Setup flyctl
+        if: steps.config.outputs.enabled == 'true'
         uses: superfly/flyctl-actions/setup-flyctl@master
 
       - name: Deploy to Fly.io
+        if: steps.config.outputs.enabled == 'true'
         run: flyctl deploy --remote-only --config fly.toml --app "${{ vars.FLY_APP_NAME }}"
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+
+      - name: Skip deploy
+        if: steps.config.outputs.enabled != 'true'
+        run: echo "Skipping Fly deploy because repository deployment settings are not configured yet."
