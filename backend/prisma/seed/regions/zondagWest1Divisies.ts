@@ -46,8 +46,8 @@ async function main() {
       const club = await prisma.club.create({
         data: {
           name: c.name,
-          homeCity: getHomeCity(c.name),
-          homeKitShirt: getKitColors(c.name).shirt,
+          city: getHomeCity(c.name),
+          primaryColor: getKitColors(c.name).shirt,
           homeKitShorts: getKitColors(c.name).shorts,
           homeKitSocks: getKitColors(c.name).socks,
           boardExpectation: getBoardExpectation(i + 1),

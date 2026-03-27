@@ -1,5 +1,7 @@
+// src/services/transferListing.service.ts
 import { PrismaClient } from '@prisma/client';
-import { logger } from '../utils/logger';
+// import { logger } from '../utils/logger';
+// import logger from '../utils/logger'; // Commented out unused import
 
 const prisma = new PrismaClient();
 
@@ -14,17 +16,16 @@ class TransferListingService {
   }) {
     return prisma.$transaction(async (tx) => {
       const player = await tx.player.findUnique({
-        where: { id: params.playerId },
-        include: { club: true }
+        where: { id: params.playerId }
       });
 
       if (!player) throw new Error('Player not found');
-      if (player.clubId !== params.clubId) {
+      if (player.currentClubId !== params.clubId) {
         throw new Error('Player does not belong to your club');
       }
-      
+
       const existingListing = await tx.transferListing.findFirst({
-        where: { 
+        where: {
           playerId: params.playerId,
           status: 'ACTIVE'
         }
@@ -46,7 +47,7 @@ class TransferListingService {
         },
         include: {
           player: true,
-          club: true
+          club: true // TransferListing has 'club' relation
         }
       });
     });
@@ -60,7 +61,7 @@ class TransferListingService {
     leagueId?: number;
   } = {}) {
     const where: any = { status: 'ACTIVE' };
-    
+
     if (filters.position) {
       where.player = { position: filters.position };
     }
@@ -82,7 +83,7 @@ class TransferListingService {
       include: {
         player: {
           include: {
-            club: {
+            currentClub: { // Player has 'currentClub' relation
               include: {
                 league: true
               }

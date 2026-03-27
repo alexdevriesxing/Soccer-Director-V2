@@ -66,8 +66,8 @@ async function main() {
       season: '2023/2024',
       clubs: {
         create: [
-          { name: 'VV Zwanenburg', homeCity: getHomeCity('VV Zwanenburg'), boardExpectation: getBoardExpectation(1), homeKitShirt: getKitColors('VV Zwanenburg').shirt, homeKitShorts: getKitColors('VV Zwanenburg').shorts, homeKitSocks: getKitColors('VV Zwanenburg').socks, morale: 90, form: 'WWWWW' },
-          { name: 'Blauw Wit W', homeCity: getHomeCity('Blauw Wit W'), boardExpectation: getBoardExpectation(2), homeKitShirt: getKitColors('Blauw Wit W').shirt, homeKitShorts: getKitColors('Blauw Wit W').shorts, homeKitSocks: getKitColors('Blauw Wit W').socks, morale: 88, form: 'WWWDW' },
+          { name: 'VV Zwanenburg', city: getHomeCity('VV Zwanenburg'), boardExpectation: getBoardExpectation(1), primaryColor: getKitColors('VV Zwanenburg').shirt, homeKitShorts: getKitColors('VV Zwanenburg').shorts, homeKitSocks: getKitColors('VV Zwanenburg').socks, morale: 90, form: 'WWWWW' },
+          { name: 'Blauw Wit W', city: getHomeCity('Blauw Wit W'), boardExpectation: getBoardExpectation(2), primaryColor: getKitColors('Blauw Wit W').shirt, homeKitShorts: getKitColors('Blauw Wit W').shorts, homeKitSocks: getKitColors('Blauw Wit W').socks, morale: 88, form: 'WWWDW' },
           // ...repeat for all clubs, using stats for morale/form
         ]
       }

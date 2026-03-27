@@ -1,93 +1,121 @@
-import { PrismaClient, NewsItem, ManagerDecision } from '@prisma/client';
+// News Service - uses in-memory storage since NewsItem and ManagerDecision models don't exist
 
-const prisma = new PrismaClient();
-
-/**
- * Generate news items for a match and store them in the database.
- * @param matchId The ID of the match (fixture)
- * @param clubId The club involved
- * @param playerId Optional player involved
- * @param type The type of news (e.g., 'result', 'injury')
- * @param headline The news headline
- * @param content The news content
- */
-export async function createNewsItem({ matchId, clubId, playerId, type, headline, content }: {
-  matchId?: number;
-  clubId?: number;
-  playerId?: number;
-  type: string;
-  headline: string;
+interface NewsItem {
+  id: number;
+  clubId: number;
+  title: string;
   content: string;
-}): Promise<NewsItem> {
-  try {
-    return await prisma.newsItem.create({
-      data: {
-        fixtureId: matchId,
-        clubId,
-        playerId,
-        type,
-        headline,
-        content,
-      },
-    });
-  } catch (error) {
-    throw new Error('Failed to create news item: ' + (error as Error).message);
-  }
+  type: string;
+  date: Date;
+  isRead: boolean;
 }
 
-/**
- * Generate a manager decision for a match and store it in the database.
- * @param matchId The ID of the match (fixture)
- * @param clubId The club involved
- * @param playerId Optional player involved
- * @param type The type of decision (e.g., 'tactical', 'discipline')
- * @param description The decision description
- * @param options The options for the manager (array of strings)
- */
-export async function createManagerDecision({ matchId, clubId, playerId, type, description, options }: {
-  matchId?: number;
-  clubId?: number;
-  playerId?: number;
+interface ManagerDecision {
+  id: number;
+  clubId: number;
   type: string;
   description: string;
   options: string[];
-}): Promise<ManagerDecision> {
-  try {
-    return await prisma.managerDecision.create({
-      data: {
-        fixtureId: matchId,
-        clubId,
-        playerId,
-        type,
-        description,
-        options,
-      },
-    });
-  } catch (error) {
-    throw new Error('Failed to create manager decision: ' + (error as Error).message);
+  deadline: Date;
+  resolved: boolean;
+  chosenOption?: string;
+}
+
+const newsStore: Map<number, NewsItem> = new Map();
+const decisionsStore: Map<number, ManagerDecision> = new Map();
+let nextNewsId = 1;
+let nextDecisionId = 1;
+
+// Create a news item
+export async function createNewsItem(data: {
+  clubId: number;
+  title: string;
+  content: string;
+  type: string;
+}): Promise<NewsItem> {
+  const item: NewsItem = {
+    id: nextNewsId++,
+    clubId: data.clubId,
+    title: data.title,
+    content: data.content,
+    type: data.type,
+    date: new Date(),
+    isRead: false
+  };
+  newsStore.set(item.id, item);
+  return item;
+}
+
+// Get news items for a club
+export async function getNewsForClub(clubId: number, limit = 20): Promise<NewsItem[]> {
+  return Array.from(newsStore.values())
+    .filter(n => n.clubId === clubId)
+    .sort((a, b) => b.date.getTime() - a.date.getTime())
+    .slice(0, limit);
+}
+
+// Mark news as read
+export async function markNewsAsRead(newsId: number): Promise<void> {
+  const item = newsStore.get(newsId);
+  if (item) {
+    item.isRead = true;
+    newsStore.set(newsId, item);
   }
 }
 
-/**
- * Fetch all news items for a given match.
- */
-export async function getNewsItemsByMatch(matchId: number): Promise<NewsItem[]> {
-  return prisma.newsItem.findMany({ where: { fixtureId: matchId }, orderBy: { createdAt: 'asc' } });
+// Create a manager decision
+export async function createDecision(data: {
+  clubId: number;
+  type: string;
+  description: string;
+  options: string[];
+  deadline: Date;
+}): Promise<ManagerDecision> {
+  const decision: ManagerDecision = {
+    id: nextDecisionId++,
+    clubId: data.clubId,
+    type: data.type,
+    description: data.description,
+    options: data.options,
+    deadline: data.deadline,
+    resolved: false
+  };
+  decisionsStore.set(decision.id, decision);
+  return decision;
 }
 
-/**
- * Fetch all manager decisions for a given match.
- */
-export async function getManagerDecisionsByMatch(matchId: number): Promise<ManagerDecision[]> {
-  return prisma.managerDecision.findMany({ where: { fixtureId: matchId }, orderBy: { createdAt: 'asc' } });
+// Get pending decisions for a club
+export async function getPendingDecisions(clubId: number): Promise<ManagerDecision[]> {
+  return Array.from(decisionsStore.values())
+    .filter(d => d.clubId === clubId && !d.resolved);
 }
 
-/**
- * Resolve a manager decision by setting the selected option and marking as resolved.
- */
-export async function resolveManagerDecision(decisionId: number, selectedOption: string): Promise<ManagerDecision> {
-  return prisma.managerDecision.update({
-    where: { id: decisionId },
-    data: { selectedOption, resolved: true },
+// Resolve a decision
+export async function resolveDecision(decisionId: number, chosenOption: string): Promise<ManagerDecision> {
+  const decision = decisionsStore.get(decisionId);
+  if (!decision) throw new Error('Decision not found');
+
+  decision.resolved = true;
+  decision.chosenOption = chosenOption;
+  decisionsStore.set(decisionId, decision);
+  return decision;
+}
+
+// Generate automatic news based on events
+export async function generateTransferNews(clubId: number, playerName: string, fromClub: string, toClub: string, fee: number): Promise<NewsItem> {
+  return createNewsItem({
+    clubId,
+    title: `Transfer: ${playerName}`,
+    content: `${playerName} has moved from ${fromClub} to ${toClub} for €${fee.toLocaleString()}.`,
+    type: 'transfer'
   });
-} 
+}
+
+export async function generateMatchNews(clubId: number, homeTeam: string, awayTeam: string, homeScore: number, awayScore: number): Promise<NewsItem> {
+  return createNewsItem({
+    clubId,
+    title: `Match Result: ${homeTeam} ${homeScore} - ${awayScore} ${awayTeam}`,
+    content: `${homeTeam} faced ${awayTeam} in an exciting match that ended ${homeScore}-${awayScore}.`,
+    type: 'match'
+  });
+}

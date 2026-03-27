@@ -3,9 +3,9 @@ const prisma = new PrismaClient();
 
 // --- REGION/LEAGUE/CLUB SEEDERS ---
 // Import all region and division-specific seeders
-import { seedZaterdagWest1 } from './seed/regions/zaterdagWest1';
-import { seedZondagWest1 } from './seed/regions/zondagWest1';
 import { seedZaterdagWest2 } from './seed/regions/zaterdagWest2';
+// import { seedZaterdagWest1 } from './seed/regions/zaterdagWest1';
+// import { seedZondagWest1 } from './seed/regions/zondagWest1';
 import { seedO21Divisie1 } from './seed/seedO21Divisie1';
 import { seedEredivisie } from './seed/seedEredivisie';
 import { seedEersteDivisie } from './seed/seedEersteDivisie';
@@ -16,34 +16,27 @@ import { seedO21Divisie2 } from './seed/seedO21Divisie2';
 import { seedO21Divisie3 } from './seed/seedO21Divisie3';
 import { seedO21Divisie4A } from './seed/seedO21Divisie4A';
 import { seedO21Divisie4B } from './seed/seedO21Divisie4B';
-import { seedUnassignedClubs } from './seed/seedUnassignedClubs';
-import { seedForeignPlayers } from './seed/seedForeignPlayers';
+// import { seedUnassignedClubs } from './seed/seedUnassignedClubs';
+// import { seedForeignPlayers } from './seed/seedForeignPlayers';
 
 async function main() {
   // --- CLEAR ALL DATA ---
-  await prisma.internationalMatchEvent.deleteMany();
-  await prisma.internationalMatch.deleteMany();
-  await prisma.internationalPlayer.deleteMany();
-  await prisma.internationalManager.deleteMany();
-  await prisma.competitionStage.deleteMany();
-  await prisma.internationalCompetition.deleteMany();
-  await prisma.nationalTeam.deleteMany();
-  await prisma.gateReceipt.deleteMany();
-  await prisma.sponsorship.deleteMany();
-  await prisma.facility.deleteMany();
-  await prisma.staffContract.deleteMany();
-  await prisma.clubFinances.deleteMany();
-  await prisma.tVRights.deleteMany();
-  await prisma.trainingFocus.deleteMany();
-  await prisma.staff.deleteMany();
-  await prisma.loan.deleteMany();
+  // Clean up existing data (removed non-existent models)
   await prisma.matchEvent.deleteMany();
   await prisma.fixture.deleteMany();
+  await prisma.playerContract.deleteMany(); // Added valid model
   await prisma.player.deleteMany();
-  await prisma.clubFormation.deleteMany();
-  await prisma.clubStrategy.deleteMany();
-  await prisma.transfer.deleteMany();
+  await prisma.transferOffer.deleteMany(); // Valid model
+  await prisma.transferListing.deleteMany(); // Valid model
+  await prisma.clubFinances.deleteMany(); // Valid model
+  await prisma.clubFacility.deleteMany(); // Valid model
+  await prisma.clubSeasonStats.deleteMany(); // Valid model
+  await prisma.sponsorship.deleteMany();
+  await prisma.loan.deleteMany();
+  await prisma.staff.deleteMany();
+  await prisma.teamInCompetition.deleteMany(); // Valid model
   await prisma.club.deleteMany();
+  await prisma.competition.deleteMany();
   await prisma.league.deleteMany();
 
   // --- NATIONAL LEAGUES/CLUBS ---
@@ -70,10 +63,9 @@ async function main() {
     const league = await prisma.league.create({
       data: {
         name: `Zaterdag West 1 ${division}`,
-        division,
-        region: 'West 1',
-        tier: 'AMATEUR',
-        season: '2024/2025',
+        level: division,
+        tier: 5,
+        // region and season removed as they are not in schema
       },
     });
     zaterdagLeagues.push(league);
@@ -95,14 +87,17 @@ async function main() {
     const league = await prisma.league.create({
       data: {
         name: `Zondag West 1 ${division}`,
-        division,
-        region: 'West 1',
-        tier: 'AMATEUR',
-        season: '2024/2025',
+        level: division,
+        tier: 5,
+        // region and season removed as they are not in schema
       },
     });
     zondagLeagues.push(league);
   }
+
+  // Import locally to avoid top-level failures if files are broken
+  const { seedZaterdagWest1 } = require('./seed/regions/zaterdagWest1');
+  const { seedZondagWest1 } = require('./seed/regions/zondagWest1');
 
   await seedZaterdagWest1(prisma, zaterdagLeagues);
   await seedZondagWest1(prisma, zondagLeagues);
@@ -114,10 +109,10 @@ async function main() {
   await seedO21Divisie4B(prisma);
 
   // Seed unassigned clubs
-  await seedUnassignedClubs(prisma);
+  // await seedUnassignedClubs(prisma);
 
   // Seed foreign clubs and players
-  await seedForeignPlayers(prisma);
+  // await seedForeignPlayers(prisma);
 
   // ...add any other scripts as needed
 

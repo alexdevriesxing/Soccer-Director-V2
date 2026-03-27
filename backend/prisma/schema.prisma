@@ -8,6 +8,25 @@ generator client {
   provider = "prisma-client-js"
 }
 
+// Game State Management
+model GameState {
+  id                 String   @id @default(uuid())
+  currentDate        String // ISO date string
+  gameSpeed          Int      @default(2) // 0: PAUSED, 1: SLOW, 2: NORMAL, 3: FAST, 4: VERY_FAST
+  isPaused           Boolean  @default(true)
+  season             Int
+  phase              String // PRE_SEASON, REGULAR_SEASON, etc.
+  activeCompetitions String // JSON array of competition IDs
+  activeClubs        String // JSON array of club IDs
+  userClubId         String? // ID of the user's club, if any
+  lastSimulatedDate  String? // ISO date string
+  version            String
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@map("game_states")
+}
+
 // 2. ENUMS (as string literals for SQLite compatibility)
 enum CompetitionType {
   LEAGUE
@@ -28,74 +47,74 @@ enum LeagueLevel {
 
 // 3. COMPETITION STRUCTURE
 model Competition {
-  id          Int       @id @default(autoincrement())
-  name        String
-  type        CompetitionType
-  level       LeagueLevel
-  season      String
-  country     String    @default("Netherlands")
-  isActive    Boolean   @default(true)
-  teams       TeamInCompetition[]
-  fixtures    Fixture[]
-  parentCompetition   Competition? @relation("CompetitionHierarchy", fields: [parentCompetitionId], references: [id])
-  parentCompetitionId  Int?
-  childCompetitions    Competition[] @relation("CompetitionHierarchy")
-  promotionSpots       Int?
-  relegationSpots      Int?
-  playoffSpots         Int?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id                  Int                 @id @default(autoincrement())
+  name                String
+  type                CompetitionType
+  level               LeagueLevel
+  season              String
+  country             String              @default("Netherlands")
+  isActive            Boolean             @default(true)
+  teams               TeamInCompetition[]
+  fixtures            Fixture[]
+  parentCompetition   Competition?        @relation("CompetitionHierarchy", fields: [parentCompetitionId], references: [id])
+  parentCompetitionId Int?
+  childCompetitions   Competition[]       @relation("CompetitionHierarchy")
+  promotionSpots      Int?
+  relegationSpots     Int?
+  playoffSpots        Int?
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
 }
 
 model TeamInCompetition {
-  id            Int       @id @default(autoincrement())
-  team          Club      @relation(fields: [teamId], references: [id])
-  teamId        Int
-  competition   Competition @relation(fields: [competitionId], references: [id])
-  competitionId Int
-  position      Int
-  played        Int       @default(0)
-  won           Int       @default(0)
-  drawn         Int       @default(0)
-  lost          Int       @default(0)
-  goalsFor      Int       @default(0)
-  goalsAgainst  Int       @default(0)
-  goalDifference Int      @default(0)
-  points        Int       @default(0)
-  form          String?   // Last 5 matches (e.g., "WWLWD")
-  homeForm      String?
-  awayForm      String?
-  promotion     Boolean   @default(false)
-  relegation    Boolean   @default(false)
-  playoff       Boolean   @default(false)
-  notes         String?
-  
+  id             Int         @id @default(autoincrement())
+  team           Club        @relation(fields: [teamId], references: [id])
+  teamId         Int
+  competition    Competition @relation(fields: [competitionId], references: [id])
+  competitionId  Int
+  position       Int
+  played         Int         @default(0)
+  won            Int         @default(0)
+  drawn          Int         @default(0)
+  lost           Int         @default(0)
+  goalsFor       Int         @default(0)
+  goalsAgainst   Int         @default(0)
+  goalDifference Int         @default(0)
+  points         Int         @default(0)
+  form           String? // Last 5 matches (e.g., "WWLWD")
+  homeForm       String?
+  awayForm       String?
+  promotion      Boolean     @default(false)
+  relegation     Boolean     @default(false)
+  playoff        Boolean     @default(false)
+  notes          String?
+
   @@unique([teamId, competitionId])
   @@index([competitionId, position])
   @@index([points, goalDifference, goalsFor])
 }
 
 model Fixture {
-  id              Int       @id @default(autoincrement())
-  competition     Competition @relation(fields: [competitionId], references: [id])
-  competitionId   Int
-  homeTeam        Club      @relation("HomeFixtures", fields: [homeTeamId], references: [id])
-  homeTeamId      Int
-  awayTeam        Club      @relation("AwayFixtures", fields: [awayTeamId], references: [id])
-  awayTeamId      Int
-  homeScore       Int?
-  awayScore       Int?
-  matchDay        Int
-  matchDate       DateTime
-  isPlayed        Boolean   @default(false)
-  isPostponed     Boolean   @default(false)
-  attendance      Int?
-  stadium         String?
-  referee         String?
-  events          MatchEvent[]
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-  
+  id            Int          @id @default(autoincrement())
+  competition   Competition  @relation(fields: [competitionId], references: [id])
+  competitionId Int
+  homeTeam      Club         @relation("HomeFixtures", fields: [homeTeamId], references: [id])
+  homeTeamId    Int
+  awayTeam      Club         @relation("AwayFixtures", fields: [awayTeamId], references: [id])
+  awayTeamId    Int
+  homeScore     Int?
+  awayScore     Int?
+  matchDay      Int
+  matchDate     DateTime
+  isPlayed      Boolean      @default(false)
+  isPostponed   Boolean      @default(false)
+  attendance    Int?
+  stadium       String?
+  referee       String?
+  events        MatchEvent[]
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
   @@index([competitionId])
   @@index([homeTeamId])
   @@index([awayTeamId])
@@ -104,18 +123,18 @@ model Fixture {
 }
 
 model MatchEvent {
-  id          Int       @id @default(autoincrement())
-  fixture     Fixture   @relation(fields: [fixtureId], references: [id])
+  id          Int     @id @default(autoincrement())
+  fixture     Fixture @relation(fields: [fixtureId], references: [id])
   fixtureId   Int
-  eventType   String    // GOAL, YELLOW_CARD, RED_CARD, SUBSTITUTION, etc.
+  eventType   String // GOAL, YELLOW_CARD, RED_CARD, SUBSTITUTION, etc.
   minute      Int
-  player      Player?   @relation(fields: [playerId], references: [id])
+  player      Player? @relation(fields: [playerId], references: [id])
   playerId    Int?
-  club        Club      @relation(fields: [clubId], references: [id])
+  club        Club    @relation(fields: [clubId], references: [id])
   clubId      Int
   description String?
   isHomeTeam  Boolean
-  
+
   @@index([fixtureId])
   @@index([playerId])
   @@index([clubId])
@@ -123,262 +142,469 @@ model MatchEvent {
 
 // 4. LEAGUE MODEL
 model League {
-  id          Int       @id @default(autoincrement())
-  name        String
-  level       String    // e.g., "Eredivisie", "Keuken Kampioen Divisie"
-  country     String    @default("Netherlands")
-  tier        Int       // 1 for top division, 2 for second, etc.
-  clubs       Club[]
-  isActive    Boolean   @default(true)
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  
+  id           Int      @id @default(autoincrement())
+  name         String
+  level        String // e.g., "Eredivisie", "Keuken Kampioen Divisie"
+  region       String?
+  matchdayType String?
+  sourcePath   String?
+  country      String   @default("Netherlands")
+  tier         Int // 1 for top division, 2 for second, etc.
+  clubs        Club[]
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
   @@index([name])
   @@index([level])
+  @@index([region])
   @@index([country])
   @@index([tier])
 }
 
 // 5. CLUB FINANCES AND FACILITIES
 model ClubFinances {
-  id              Int       @id @default(autoincrement())
-  club            Club      @relation(fields: [clubId], references: [id])
-  clubId          Int       @unique
-  season          String    // e.g., "2023/2024"
-  matchdayIncome  Float     @default(0)
-  seasonTicketIncome Float   @default(0)
-  sponsorship     Float     @default(0)
-  prizeMoney      Float     @default(0)
-  playerSales     Float     @default(0)
-  playerWages     Float     @default(0)
-  staffWages      Float     @default(0)
-  facilityCosts   Float     @default(0)
-  youthAcademy    Float     @default(0)
-  transferBudget  Float     @default(0)
-  currentBalance  Float     @default(0)
-  
+  id                 Int    @id @default(autoincrement())
+  club               Club   @relation(fields: [clubId], references: [id])
+  clubId             Int    @unique
+  season             String // e.g., "2023/2024"
+  matchdayIncome     Float  @default(0)
+  seasonTicketIncome Float  @default(0)
+  sponsorship        Float  @default(0)
+  prizeMoney         Float  @default(0)
+  playerSales        Float  @default(0)
+  playerWages        Float  @default(0)
+  staffWages         Float  @default(0)
+  facilityCosts      Float  @default(0)
+  youthAcademy       Float  @default(0)
+  transferBudget     Float  @default(0)
+  currentBalance     Float  @default(0)
+
+  wageBudget  Float @default(0)
+  marketValue Float @default(0)
+
   // Timestamps
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   @@unique([clubId, season])
 }
 
+model Loan {
+  id         Int       @id @default(autoincrement())
+  player     Player    @relation(fields: [playerId], references: [id])
+  playerId   Int
+  fromClub   Club      @relation("LoanFromClub", fields: [fromClubId], references: [id])
+  fromClubId Int
+  toClub     Club      @relation("LoanToClub", fields: [toClubId], references: [id])
+  toClubId   Int
+  startDate  DateTime
+  endDate    DateTime?
+  status     String    @default("active") // active, returned, purchased
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([fromClubId])
+  @@index([toClubId])
+  @@index([playerId])
+}
+
+model Sponsorship {
+  id       Int     @id @default(autoincrement())
+  club     Club    @relation(fields: [clubId], references: [id])
+  clubId   Int
+  name     String
+  value    Float
+  duration Int // Seasons
+  isActive Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([clubId])
+}
+
+model StartingXI {
+  id     Int    @id @default(autoincrement())
+  club   Club   @relation(fields: [clubId], references: [id])
+  clubId Int    @unique
+  slots  String // JSON string for now
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
 model ClubFacility {
-  id              Int       @id @default(autoincrement())
-  club            Club      @relation(fields: [clubId], references: [id])
-  clubId          Int       @unique
-  stadiumLevel    Int       @default(1)
-  trainingGround  Int       @default(1)
-  youthAcademy    Int       @default(1)
-  youthFacilities Int       @default(1)
-  scoutingNetwork Int       @default(1)
-  
+  id              Int  @id @default(autoincrement())
+  club            Club @relation(fields: [clubId], references: [id])
+  clubId          Int  @unique
+  stadiumLevel    Int  @default(1)
+  trainingGround  Int  @default(1)
+  youthAcademy    Int  @default(1)
+  youthFacilities Int  @default(1)
+  scoutingNetwork Int  @default(1)
+
   // Timestamps
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model ClubSeasonStats {
-  id              Int       @id @default(autoincrement())
-  club            Club      @relation(fields: [clubId], references: [id])
-  clubId          Int
-  season          String    // e.g., "2023/2024"
-  matchesPlayed   Int       @default(0)
-  wins            Int       @default(0)
-  draws           Int       @default(0)
-  losses          Int       @default(0)
-  goalsFor        Int       @default(0)
-  goalsAgainst    Int       @default(0)
-  cleanSheets     Int       @default(0)
-  yellowCards     Int       @default(0)
-  redCards        Int       @default(0)
-  
+  id            Int    @id @default(autoincrement())
+  club          Club   @relation(fields: [clubId], references: [id])
+  clubId        Int
+  season        String // e.g., "2023/2024"
+  matchesPlayed Int    @default(0)
+  wins          Int    @default(0)
+  draws         Int    @default(0)
+  losses        Int    @default(0)
+  goalsFor      Int    @default(0)
+  goalsAgainst  Int    @default(0)
+  cleanSheets   Int    @default(0)
+  yellowCards   Int    @default(0)
+  redCards      Int    @default(0)
+
   // League position and points
-  position        Int?
-  points          Int       @default(0)
-  
+  position Int?
+  points   Int  @default(0)
+
   // Timestamps
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   @@unique([clubId, season])
   @@index([season, points])
 }
 
 // 5. CLUB MODEL
 model Club {
-  id              Int       @id @default(autoincrement())
+  id              Int     @id @default(autoincrement())
   name            String
   shortName       String?
   founded         Int?
+  sourceUrl       String?
+  logoUrl         String?
   city            String?
+  region          String?
+  streetAddress   String?
+  postalCode      String?
   stadium         String?
   capacity        Int?
-  reputation      Int?      @default(50) // 1-100 scale
-  financialStatus Int?      @default(50) // 1-100 scale
-  
+  reputation      Int?    @default(50) // 1-100 scale
+  financialStatus Int?    @default(50) // 1-100 scale
+
   // Team performance
-  morale          Int?      @default(70) // 1-100 scale
-  form            String?   // Last 5 matches (e.g., "WWLWD")
-  boardExpectation String?  // e.g., 'title-challenge', 'europe', 'mid-table', 'avoid-relegation'
-  
+  morale           Int?    @default(70) // 1-100 scale
+  form             String? // Last 5 matches (e.g., "WWLWD")
+  boardExpectation String? // e.g., 'title-challenge', 'europe', 'mid-table', 'avoid-relegation'
+
   // League and competition
-  leagueId        Int?
-  league          League?   @relation(fields: [leagueId], references: [id])
-  
+  leagueId Int?
+  league   League? @relation(fields: [leagueId], references: [id])
+
   // Team colors
-  primaryColor    String?   // Hex color
-  secondaryColor  String?   // Hex color
-  
+  primaryColor   String? // Hex color
+  secondaryColor String? // Hex color
+
   // Relations
-  players         Player[]
-  staff           Staff[]
-  homeFixtures    Fixture[] @relation("HomeFixtures")
-  awayFixtures    Fixture[] @relation("AwayFixtures")
-  matchEvents     MatchEvent[]
-  competitions    TeamInCompetition[]
+  players          Player[]
+  staff            Staff[]
+  playerContracts  PlayerContract[]
+  homeFixtures     Fixture[]           @relation("HomeFixtures")
+  awayFixtures     Fixture[]           @relation("AwayFixtures")
+  loansOut         Loan[]              @relation("LoanFromClub")
+  loansIn          Loan[]              @relation("LoanToClub")
+  sponsorships     Sponsorship[]
+  startingXI       StartingXI?
+  matchEvents      MatchEvent[]
+  competitions     TeamInCompetition[]
   transferListings TransferListing[]
-  offersMade      TransferOffer[] @relation("FromClub")
-  offersReceived  TransferOffer[] @relation("ToClub")
-  finances        ClubFinances?
-  facility        ClubFacility?
-  clubSeasonStats ClubSeasonStats[]
-  
+  offersMade       TransferOffer[]     @relation("FromClub")
+  offersReceived   TransferOffer[]     @relation("ToClub")
+  finances         ClubFinances?
+  facility         ClubFacility?
+  clubSeasonStats  ClubSeasonStats[]
+
   // Financials
-  balance         Float     @default(0)
-  transferBudget  Float     @default(0)
-  wageBudget      Float     @default(0)
-  
+  balance        Float @default(0)
+  transferBudget Float @default(0)
+  wageBudget     Float @default(0)
+
   // Stats
-  averageAttendance Int?    @default(0)
-  
+  averageAttendance Int? @default(0)
+
   // Jong team relationship
-  isJongTeam      Boolean   @default(false)
-  parentClubId    Int?
-  parentClub      Club?     @relation("JongTeams", fields: [parentClubId], references: [id])
-  jongTeams       Club[]    @relation("JongTeams")
-  
+  isJongTeam   Boolean @default(false)
+  parentClubId Int?
+  parentClub   Club?   @relation("JongTeams", fields: [parentClubId], references: [id])
+  jongTeams    Club[]  @relation("JongTeams")
+
   // Metadata
-  isUserControlled Boolean  @default(false)
-  isActive        Boolean   @default(true)
-  
+  isUserControlled Boolean @default(false)
+  isActive         Boolean @default(true)
+
   // Timestamps
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   @@index([name])
   @@index([city])
+  @@index([region])
   @@index([reputation])
 }
 
 // 5. PLAYER MODEL
 model Player {
-  id              Int       @id @default(autoincrement())
-  firstName       String
-  lastName        String
-  dateOfBirth     DateTime
-  nationality     String    @default("Netherlands")
-  height          Int?      // in cm
-  weight          Int?      // in kg
-  
+  // Basic Information
+  id                Int      @id @default(autoincrement())
+  firstName         String
+  lastName          String
+  fullName          String?  @default("") // Computed field
+  dateOfBirth       DateTime
+  age               Int? // Computed field
+  nationality       String   @default("Netherlands")
+  secondNationality String?
+  height            Int? // in cm
+  weight            Int? // in kg
+
   // Current club
-  currentClub     Club?     @relation(fields: [currentClubId], references: [id])
-  currentClubId   Int?
-  
+  currentClub   Club? @relation(fields: [currentClubId], references: [id])
+  currentClubId Int?
+
   // Contract
-  contractStart   DateTime?
-  contractEnd     DateTime?
-  weeklyWage      Float?    // in euros
-  value           Float?    // estimated market value in euros
-  
+  contractStart DateTime?
+  contractEnd   DateTime?
+  weeklyWage    Float? // in euros
+  yearlyWage    Float? // computed field
+  value         Float? // estimated market value in euros
+
   // Player attributes
-  position        String    // e.g., "ST", "CM", "CB"
-  preferredFoot   String?   // "LEFT" or "RIGHT"
-  
+  position           String // e.g., "ST", "CM", "CB"
+  preferredPositions String // JSON array of preferred positions in order
+  preferredFoot      String? // "LEFT" or "RIGHT"
+
+  // Player abilities
+  potentialAbility Int? // 1-200
+  currentAbility   Int? // 1-200
+
+  // Mental attributes
+  determination Int? // 1-20
+  workRate      Int? // 1-20
+  teamwork      Int? // 1-20
+  leadership    Int? // 1-20
+  positioning   Int? // 1-20
+  offTheBall    Int? // 1-20
+  vision        Int? // 1-20
+  decisions     Int? // 1-20
+
+  // Physical attributes
+  pace           Int? // 1-20
+  acceleration   Int? // 1-20
+  stamina        Int? // 1-20
+  strength       Int? // 1-20
+  jumpingReach   Int? // 1-20
+  naturalFitness Int? // 1-20
+
+  // Technical attributes
+  finishing  Int? // 1-20
+  longShots  Int? // 1-20
+  passing    Int? // 1-20
+  technique  Int? // 1-20
+  dribbling  Int? // 1-20
+  firstTouch Int? // 1-20
+  heading    Int? // 1-20
+  tackling   Int? // 1-20
+  marking    Int? // 1-20
+
+  // Goalkeeping attributes
+  handling      Int? // 1-20
+  reflexes      Int? // 1-20
+  oneOnOnes     Int? // 1-20
+  commandOfArea Int? // 1-20
+
+  // Hidden attributes
+  injuryProneness  Int? // 1-20
+  consistency      Int? // 1-20
+  importantMatches Int? // 1-20
+  versatility      Int? // 1-20
+
+  // Personality
+  personalityType String? // Model Citizen, Leader, etc.
+  professionalism Int? // 1-20
+  ambition        Int? // 1-20
+  loyalty         Int? // 1-20
+  pressure        Int? // 1-20
+  temperament     Int? // 1-20
+
+  // Development
+  trainingLevel    Int? // 1-20
+  trainingFocus    String? // e.g., "Quickness", "Finishing"
+  developmentFocus String? // e.g., "Quickness", "Finishing"
+  lastTrained      DateTime?
+
+  // Morale & Happiness
+  happiness Int? // 1-100
+  morale    Int? // 1-100
+
   // Stats
-  appearances     Int       @default(0)
-  goals           Int       @default(0)
-  assists         Int       @default(0)
-  yellowCards     Int       @default(0)
-  redCards        Int       @default(0)
-  
+  appearances Int @default(0)
+  goals       Int @default(0)
+  assists     Int @default(0)
+  yellowCards Int @default(0)
+  redCards    Int @default(0)
+  cleanSheets Int @default(0) // For goalkeepers
+
   // Relations
-  transferOffers  TransferOffer[] @relation("PlayerTransferOffers")
-  transferListings TransferListing[]
-  matchEvents     MatchEvent[]
-  
+  transferOffers    TransferOffer[]     @relation("PlayerTransferOffers")
+  transferListings  TransferListing[]
+  matchEvents       MatchEvent[]
+  playerAttributes  PlayerAttribute[]
+  contracts         PlayerContract[]
+  moraleEvents      PlayerMoraleEvent[]
+  loans             Loan[]
+  mentoringAsMentor Mentorship[]        @relation("Mentor")
+  mentoringAsMentee Mentorship[]        @relation("Mentee")
+
   // Metadata
-  isInjured      Boolean   @default(false)
-  injuryEndDate   DateTime?
-  isSuspended    Boolean   @default(false)
+
+  // Metadata
+  isInjured         Boolean   @default(false)
+  injuryEndDate     DateTime?
+  isSuspended       Boolean   @default(false)
   suspensionEndDate DateTime?
-  
+
   // Timestamps
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-  
-  // Computed fields (virtual, not stored in DB)
-  @@map("players")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   @@index([firstName, lastName])
   @@index([currentClubId])
   @@index([nationality])
   @@index([position])
   @@index([value])
+  @@index([potentialAbility])
+  @@index([currentAbility])
+  @@index([contractEnd])
+  @@index([weeklyWage])
+  @@map("players")
 }
 
-// 6. STAFF MODEL
+// 6. PLAYER ATTRIBUTES MODEL
+model PlayerAttribute {
+  id             Int    @id @default(autoincrement())
+  player         Player @relation(fields: [playerId], references: [id])
+  playerId       Int
+  attributeGroup String // e.g., "MENTAL", "PHYSICAL", "TECHNICAL"
+  attributeName  String // e.g., "Pace", "Finishing"
+  attributeValue Int // 1-20
+
+  @@unique([playerId, attributeGroup, attributeName])
+  @@index([playerId])
+  @@index([attributeGroup, attributeName])
+}
+
+// 7. PLAYER CONTRACTS MODEL
+model PlayerContract {
+  id                             Int      @id @default(autoincrement())
+  player                         Player   @relation(fields: [playerId], references: [id])
+  playerId                       Int
+  club                           Club?    @relation(fields: [clubId], references: [id])
+  clubId                         Int?
+  startDate                      DateTime
+  endDate                        DateTime
+  weeklyWage                     Float
+  yearlyWage                     Float? // Computed field
+  yearlySalaryIncreasePercent    Float?   @default(0)
+  releaseClause                  Float? // Release clause in euros
+  minReleaseClause               Float? // Minimum release clause for foreign clubs
+  relegationReleaseClause        Float? // Release clause if club is relegated
+  promotionSalaryIncreasePercent Float?   @default(0)
+  appearanceFee                  Float?   @default(0)
+  goalBonus                      Float?   @default(0)
+  cleanSheetBonus                Float?   @default(0)
+  internationalCapBonus          Float?   @default(0)
+  isActive                       Boolean  @default(true)
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([playerId])
+  @@index([clubId])
+  @@index([isActive])
+  @@index([endDate])
+}
+
+// 8. PLAYER MORALE EVENTS MODEL
+model PlayerMoraleEvent {
+  id           Int       @id @default(autoincrement())
+  player       Player    @relation(fields: [playerId], references: [id])
+  playerId     Int
+  eventType    String // e.g., "CONTRACT_SIGNED", "TRANSFER", "TEAM_WIN"
+  description  String
+  moraleEffect Int // Positive or negative effect on morale
+  expiresAt    DateTime? // When the effect expires
+
+  // Timestamps
+  createdAt DateTime @default(now())
+
+  @@index([playerId])
+  @@index([expiresAt])
+}
+
+// 9. STAFF MODEL
 model Staff {
-  id              Int       @id @default(autoincrement())
-  firstName       String
-  lastName        String
-  dateOfBirth     DateTime
-  nationality     String
-  role            String    // e.g., "MANAGER", "ASSISTANT", "SCOUT"
-  
+  id          Int      @id @default(autoincrement())
+  firstName   String
+  lastName    String
+  dateOfBirth DateTime
+  nationality String
+  role        String // e.g., "MANAGER", "ASSISTANT", "SCOUT"
+
   // Current club
-  club            Club      @relation(fields: [clubId], references: [id])
-  clubId          Int
-  
+  club   Club @relation(fields: [clubId], references: [id])
+  clubId Int
+
   // Contract
-  contractStart   DateTime
-  contractEnd     DateTime
-  weeklyWage      Float     // in euros
-  
+  contractStart DateTime
+  contractEnd   DateTime
+  weeklyWage    Float // in euros
+
   // Attributes based on role
-  ability         Int?      // 1-100
-  potential       Int?      // 1-100
-  
+  ability   Int? // 1-100
+  potential Int? // 1-100
+
   // Manager-specific
   preferredFormation String? // e.g., "4-3-3", "4-4-2"
-  
+
   // Timestamps
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   @@index([clubId])
   @@index([role])
 }
 
 // 7. TRANSFER LISTING MODEL
 model TransferListing {
-  id              Int       @id @default(autoincrement())
-  player          Player    @relation(fields: [playerId], references: [id])
-  playerId        Int
-  club            Club      @relation(fields: [clubId], references: [id])
-  clubId          Int
-  askingPrice     Float
-  listingType     String    @default("TRANSFER") // TRANSFER, LOAN, BOTH
-  loanFee         Float?
+  id               Int             @id @default(autoincrement())
+  player           Player          @relation(fields: [playerId], references: [id])
+  playerId         Int
+  club             Club            @relation(fields: [clubId], references: [id])
+  clubId           Int
+  askingPrice      Float
+  listingType      String          @default("TRANSFER") // TRANSFER, LOAN, BOTH
+  loanFee          Float?
   wageContribution Float?
-  status          String    @default("ACTIVE")  // ACTIVE, COMPLETED, CANCELLED, EXPIRED
-  deadline        DateTime?
-  offers          TransferOffer[]
-  
+  status           String          @default("ACTIVE") // ACTIVE, COMPLETED, CANCELLED, EXPIRED
+  deadline         DateTime?
+  offers           TransferOffer[]
+
   // Timestamps
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   @@index([playerId])
   @@index([clubId])
   @@index([status])
@@ -387,55 +613,327 @@ model TransferListing {
 
 // 8. TRANSFER OFFER MODEL
 model TransferOffer {
-  id              Int       @id @default(autoincrement())
-  player          Player    @relation("PlayerTransferOffers", fields: [playerId], references: [id])
-  playerId        Int
-  fromClub        Club      @relation("FromClub", fields: [fromClubId], references: [id])
-  fromClubId      Int
-  toClub          Club      @relation("ToClub", fields: [toClubId], references: [id])
-  toClubId        Int
-  listing         TransferListing? @relation(fields: [listingId], references: [id])
-  listingId       Int?
-  
+  id         Int              @id @default(autoincrement())
+  player     Player           @relation("PlayerTransferOffers", fields: [playerId], references: [id])
+  playerId   Int
+  fromClub   Club             @relation("FromClub", fields: [fromClubId], references: [id])
+  fromClubId Int
+  toClub     Club             @relation("ToClub", fields: [toClubId], references: [id])
+  toClubId   Int
+  listing    TransferListing? @relation(fields: [listingId], references: [id])
+  listingId  Int?
+
   // Offer details
-  status          String    @default("PENDING") // PENDING, ACCEPTED, REJECTED, COUNTERED, WITHDRAWN
-  amount          Float
-  isLoan          Boolean   @default(false)
-  loanEndDate     DateTime?
+  status           String    @default("PENDING") // PENDING, ACCEPTED, REJECTED, COUNTERED, WITHDRAWN
+  amount           Float
+  isLoan           Boolean   @default(false)
+  loanEndDate      DateTime?
   wageContribution Float?
-  transferFee     Float?
-  
+  transferFee      Float?
+
   // Contract details
-  contractLength  Int?      // in years
-  weeklyWage      Float?    // offered weekly wage
-  
+  contractLength Int? // in years
+  weeklyWage     Float? // offered weekly wage
+
   // Additional clauses
-  addonClauses    Json?     // Performance bonuses, sell-on clauses, etc.
-  
+  addonClauses Json? // Performance bonuses, sell-on clauses, etc.
+
   // Communication
-  message         String?
-  response        String?
-  initiator       String?   // 'user' or 'AI'
-  
+  message   String?
+  response  String?
+  initiator String? // 'user' or 'AI'
+
   // For counter offers
   counteredAmount Float?
-  
+
   // Timestamps
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-  deadline        DateTime? // Deadline for response
-  
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deadline  DateTime? // Deadline for response
+
   // Audit trail
-  history         Json?     // History of changes to the offer
-  
+  history Json? // History of changes to the offer
+
   // Loan with option to buy
-  isLoanWithOption Boolean  @default(false)
-  optionToBuyFee  Float?
-  
+  isLoanWithOption Boolean @default(false)
+  optionToBuyFee   Float?
+
   @@index([playerId])
   @@index([fromClubId])
   @@index([toClubId])
   @@index([listingId])
   @@index([status])
   @@index([deadline])
+}
+
+// 10. MENTORSHIP MODEL
+model Mentorship {
+  id        Int       @id @default(autoincrement())
+  mentor    Player    @relation("Mentor", fields: [mentorId], references: [id])
+  mentorId  Int
+  mentee    Player    @relation("Mentee", fields: [menteeId], references: [id])
+  menteeId  Int
+  startDate DateTime  @default(now())
+  endDate   DateTime?
+  status    String    @default("ACTIVE") // ACTIVE, COMPLETED, FAILED, CANCELLED
+  notes     String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([mentorId])
+  @@index([menteeId])
+}
+
+// V2 PARALLEL TRACK MODELS
+model V2Career {
+  id               String   @id @default(uuid())
+  managerName      String
+  controlledClubId Int
+  currentDate      DateTime
+  currentPhase     String
+  season           String
+  weekNumber       Int      @default(1)
+  activeLeagueId   Int?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  saveSlots      V2SaveSlot[]
+  leagueStates   V2LeagueState[]
+  clubStates     V2ClubState[]
+  playerStates   V2PlayerState[]
+  fixtures       V2Fixture[]
+  weekPlans      V2WeekPlan[]
+  inboxEvents    V2InboxEvent[]
+  eventDecisions V2EventDecision[]
+  matches        V2Match[]
+  auditLogs      V2AuditLog[]
+
+  @@index([controlledClubId])
+  @@index([weekNumber])
+}
+
+model V2SaveSlot {
+  id           String   @id
+  careerId     String
+  slotName     String
+  isAuto       Boolean  @default(false)
+  snapshot     String
+  stateHash    String
+  lastPlayedAt DateTime @default(now())
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  career V2Career @relation(fields: [careerId], references: [id], onDelete: Cascade)
+
+  @@unique([careerId, slotName])
+  @@index([careerId, updatedAt])
+}
+
+model V2LeagueState {
+  id                String   @id
+  careerId          String
+  leagueId          Int
+  clubId            Int
+  position          Int
+  played            Int      @default(0)
+  won               Int      @default(0)
+  drawn             Int      @default(0)
+  lost              Int      @default(0)
+  goalsFor          Int      @default(0)
+  goalsAgainst      Int      @default(0)
+  goalDifference    Int      @default(0)
+  points            Int      @default(0)
+  progressionStatus String   @default("STABLE")
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  career V2Career @relation(fields: [careerId], references: [id], onDelete: Cascade)
+
+  @@unique([careerId, leagueId, clubId])
+  @@index([careerId, leagueId, points, goalDifference])
+}
+
+model V2ClubState {
+  id              String   @id
+  careerId        String
+  clubId          Int
+  morale          Int      @default(50)
+  fitnessTrend    Int      @default(0)
+  boardConfidence Int      @default(50)
+  budgetBalance   Float    @default(0)
+  injuriesSummary String   @default("{\"total\":0,\"severe\":0}")
+  form            String   @default("NNNNN")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  career V2Career @relation(fields: [careerId], references: [id], onDelete: Cascade)
+
+  @@unique([careerId, clubId])
+  @@index([careerId, morale])
+}
+
+model V2PlayerState {
+  id               String   @id
+  careerId         String
+  playerId         Int
+  clubId           Int
+  morale           Int      @default(50)
+  fitness          Int      @default(90)
+  form             Int      @default(50)
+  isInjured        Boolean  @default(false)
+  injuryWeeks      Int      @default(0)
+  isSuspended      Boolean  @default(false)
+  developmentDelta Int      @default(0)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  career V2Career @relation(fields: [careerId], references: [id], onDelete: Cascade)
+
+  @@unique([careerId, playerId])
+  @@index([careerId, clubId])
+}
+
+model V2Fixture {
+  id                String   @id
+  careerId          String
+  leagueId          Int
+  homeClubId        Int
+  awayClubId        Int
+  matchDate         DateTime
+  weekNumber        Int
+  status            String   @default("SCHEDULED")
+  homeScore         Int?
+  awayScore         Int?
+  isUserClubFixture Boolean  @default(false)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  career V2Career @relation(fields: [careerId], references: [id], onDelete: Cascade)
+  match  V2Match?
+
+  @@index([careerId, weekNumber, status])
+  @@index([careerId, leagueId])
+  @@index([careerId, isUserClubFixture, weekNumber])
+}
+
+model V2WeekPlan {
+  id                String   @id
+  careerId          String
+  weekNumber        Int
+  trainingFocus     String
+  rotationIntensity String
+  tacticalMentality String
+  transferStance    String
+  scoutingPriority  String
+  submittedAt       DateTime
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  career V2Career @relation(fields: [careerId], references: [id], onDelete: Cascade)
+
+  @@unique([careerId, weekNumber])
+}
+
+model V2InboxEvent {
+  id             String    @id
+  careerId       String
+  weekNumber     Int
+  title          String
+  description    String
+  urgency        String
+  options        String
+  deadline       DateTime
+  status         String    @default("PENDING")
+  autoResolved   Boolean   @default(false)
+  resolutionNote String?
+  resolvedAt     DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  career    V2Career          @relation(fields: [careerId], references: [id], onDelete: Cascade)
+  decisions V2EventDecision[]
+
+  @@index([careerId, weekNumber, status])
+  @@index([careerId, urgency, status])
+}
+
+model V2EventDecision {
+  id          String   @id
+  eventId     String
+  careerId    String
+  optionId    String
+  optionLabel String
+  effects     String
+  decidedAt   DateTime @default(now())
+  createdAt   DateTime @default(now())
+
+  event  V2InboxEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  career V2Career     @relation(fields: [careerId], references: [id], onDelete: Cascade)
+
+  @@index([careerId, decidedAt])
+  @@index([eventId])
+}
+
+model V2Match {
+  id             String    @id
+  careerId       String
+  fixtureId      String    @unique
+  status         String    @default("PENDING")
+  homeScore      Int       @default(0)
+  awayScore      Int       @default(0)
+  homeXg         Float     @default(0)
+  awayXg         Float     @default(0)
+  homePossession Int       @default(50)
+  awayPossession Int       @default(50)
+  interventions  String?
+  seed           String?
+  startedAt      DateTime?
+  completedAt    DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  career     V2Career      @relation(fields: [careerId], references: [id], onDelete: Cascade)
+  fixture    V2Fixture     @relation(fields: [fixtureId], references: [id], onDelete: Cascade)
+  highlights V2Highlight[]
+
+  @@index([careerId, status])
+}
+
+model V2Highlight {
+  id              String   @id
+  matchId         String
+  minute          Int
+  eventType       String
+  teamSide        String?
+  actorId         Int?
+  fromX           Float?
+  fromY           Float?
+  toX             Float?
+  toY             Float?
+  animationPreset String
+  cameraPath      String?
+  commentary      String
+  xThreatRank     Float    @default(0)
+  isDecisive      Boolean  @default(false)
+  payload         String?
+  createdAt       DateTime @default(now())
+
+  match V2Match @relation(fields: [matchId], references: [id], onDelete: Cascade)
+
+  @@index([matchId, minute])
+}
+
+model V2AuditLog {
+  id        String   @id
+  careerId  String
+  category  String
+  message   String
+  metadata  String?
+  createdAt DateTime @default(now())
+
+  career V2Career @relation(fields: [careerId], references: [id], onDelete: Cascade)
+
+  @@index([careerId, createdAt])
+  @@index([careerId, category])
 }

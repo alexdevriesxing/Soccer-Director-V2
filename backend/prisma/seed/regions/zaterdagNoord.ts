@@ -20,10 +20,10 @@ function getMorale(position: number, total: number): number {
 function getKitColors(name: string) {
   // Placeholder: default kit colors
   return {
-    homeKitShirt: '#1976d2',
+    primaryColor: '#1976d2',
     homeKitShorts: '#fff',
     homeKitSocks: '#222',
-    awayKitShirt: '#4ecdc4',
+    secondaryColor: '#4ecdc4',
     awayKitShorts: '#3da89e',
     awayKitSocks: '#4ecdc4',
   };
@@ -65,7 +65,7 @@ async function createLeagueWithClubs({ name, division, region, clubs }: LeagueWi
         data: {
           name: c.name,
           leagueId: league.id,
-          homeCity: c.homeCity || null,
+          city: c.homeCity || null,
           boardExpectation: c.boardExpectation || getBoardExpectation(i + 1, clubs.length),
           morale: getMorale(i + 1, clubs.length),
           regionTag: 'Zaterdag Noord',

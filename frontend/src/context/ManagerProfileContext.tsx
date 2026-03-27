@@ -12,7 +12,7 @@ type ManagerProfileContextType = {
 
 const ManagerProfileContext = createContext<ManagerProfileContextType | undefined>(undefined);
 
-export function ManagerProfileProvider({ children }: { children: ReactNode }) {
+export function ManagerProfileProvider({ children }: { children?: ReactNode }) {
   const [profile, setProfile] = useState<ManagerProfile | null>(() => {
     const saved = localStorage.getItem('soccer-director-profile');
     return saved ? JSON.parse(saved) : null;

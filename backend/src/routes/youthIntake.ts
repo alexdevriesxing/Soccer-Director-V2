@@ -1,29 +1,30 @@
 import express from 'express';
-import { triggerIntakeEvent, getIntakeHistory } from '../services/youthIntakeService';
+import { generateYouthIntake, automateIntake } from '../services/youthIntakeService';
+import { errorResponse } from '../utils/errorResponse';
 import { t } from '../utils/i18n';
 
 const router = express.Router();
 
-// POST /api/youth-intake/trigger
-router.post('/trigger', async (req, res) => {
-  try {
-    const { clubId, type, year } = req.body;
-    const event = await triggerIntakeEvent(clubId, type, year);
-    res.json(event);
-  } catch (error) {
-    res.status(500).json({ error: t('error.failed_to_trigger_intake_event', (req as any).language || 'en') });
-  }
+// GET /api/youth-intake/:clubId/generate
+router.get('/:clubId/generate', async (req, res) => {
+    try {
+        const clubId = parseInt(req.params.clubId, 10);
+        const result = await generateYouthIntake(clubId);
+        res.json(result);
+    } catch (error) {
+        errorResponse(res, error, t('error.failed_to_generate_youth_intake', (req as any).language || 'en'));
+    }
 });
 
-// GET /api/youth-intake/history/:clubId
-router.get('/history/:clubId', async (req, res) => {
-  try {
-    const clubId = parseInt(req.params.clubId, 10);
-    const history = await getIntakeHistory(clubId);
-    res.json(history);
-  } catch (error) {
-    res.status(500).json({ error: t('error.failed_to_get_intake_history', (req as any).language || 'en') });
-  }
+// POST /api/youth-intake/:clubId/automate
+router.post('/:clubId/automate', async (req, res) => {
+    try {
+        const clubId = parseInt(req.params.clubId, 10);
+        const result = await automateIntake(clubId);
+        res.json(result);
+    } catch (error) {
+        errorResponse(res, error, t('error.failed_to_automate_youth_intake', (req as any).language || 'en'));
+    }
 });
 
-export default router; 
+export default router;

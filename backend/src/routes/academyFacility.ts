@@ -1,5 +1,5 @@
 import express from 'express';
-import { getFacilitiesForClub, upgradeFacility, setFacilitySpecialization, getFacilitiesBySpecialization } from '../services/academyFacilityService';
+import { getAcademyFacilities, upgradeFacility, setFacilitySpecialization, getFacilitiesBySpecialization } from '../services/academyFacilityService';
 import { t } from '../utils/i18n';
 
 const router = express.Router();
@@ -8,7 +8,7 @@ const router = express.Router();
 router.get('/:clubId', async (req, res) => {
   try {
     const clubId = parseInt(req.params.clubId, 10);
-    const facilities = await getFacilitiesForClub(clubId);
+    const facilities = await getAcademyFacilities(clubId);
     res.json(facilities);
   } catch (error) {
     res.status(500).json({ error: t('error.failed_to_get_facilities', (req as any).language || 'en') });

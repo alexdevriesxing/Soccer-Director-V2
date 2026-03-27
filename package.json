@@ -3,7 +3,11 @@
   "scripts": {
     "dev": "npm run dev --prefix backend & npm start --prefix frontend",
     "dev:frontend": "npm run dev --prefix frontend",
-    "dev:backend": "npm run dev --prefix backend"
+    "dev:backend": "npm run dev --prefix backend",
+    "check:v2:baseline": "bash ./scripts/check-v2-baseline.sh",
+    "check:v2:baseline:browser": "V2_BASELINE_WITH_BROWSER=true bash ./scripts/check-v2-baseline.sh",
+    "check:v2:release-candidate": "bash ./scripts/check-v2-release-candidate.sh",
+    "check:v2:release-candidate:browser": "V2_RC_WITH_BROWSER=true bash ./scripts/check-v2-release-candidate.sh"
   },
   "dependencies": {
     "@fortawesome/free-brands-svg-icons": "^7.0.0",

@@ -8,7 +8,8 @@ const router = express.Router();
  * @route GET /api/game/state
  * @description Get the current game state (week, season, transfer window status)
  */
-router.get('/state', async (req, res) => {
+// GET /api/game/state
+router.get('/state', async (_req: any, res: any) => {
   try {
     const gameState = GameStateService.getInstance().getGameState();
     res.json({
@@ -33,14 +34,15 @@ router.get('/state', async (req, res) => {
  * @route POST /api/game/advance-week
  * @description Advance the game by one week
  */
-router.post('/advance-week', async (req, res) => {
+// Post /api/game/advance-week
+router.post('/advance-week', async (_req: any, res: any) => {
   try {
     // Process the current week
     await GameLoopService.processWeek();
-    
+
     // Get the updated game state
     const gameState = GameStateService.getInstance().getGameState();
-    
+
     res.json({
       success: true,
       message: `Advanced to week ${gameState.currentWeek} of ${gameState.currentSeason}`,
@@ -66,20 +68,20 @@ router.post('/advance-week', async (req, res) => {
 router.post('/set-week/:week', async (req, res) => {
   try {
     const week = parseInt(req.params.week);
-    
+
     if (isNaN(week) || week < 1 || week > 38) {
       return res.status(400).json({
         success: false,
         error: 'Week must be a number between 1 and 38'
       });
     }
-    
+
     await GameStateService.getInstance().setWeek(week);
-    
+
     // Get the updated game state
     const gameState = GameStateService.getInstance().getGameState();
-    
-    res.json({
+
+    return res.json({
       success: true,
       message: `Set game week to ${gameState.currentWeek}`,
       data: {
@@ -90,7 +92,7 @@ router.post('/set-week/:week', async (req, res) => {
     });
   } catch (error) {
     console.error('Error setting game week:', error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       error: 'Failed to set game week'
     });

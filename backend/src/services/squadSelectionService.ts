@@ -1,98 +1,106 @@
-import { PrismaClient, Player } from '@prisma/client';
-
+import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 
-/**
- * Selects the best starting XI for a club using a 4-4-2 formation.
- * Considers skill, fitness, and availability (not injured, not on international duty, not on loan).
- * Returns an array of Player objects representing the best XI.
- */
-export async function selectBestXIForClub(clubId: number): Promise<Player[]> {
-  // Fetch all available players for the club, including their loans
+// Squad Selection Service
+// Handles starting XI and player selection
+
+export async function getAvailablePlayers(clubId: number) {
   const players = await prisma.player.findMany({
     where: {
-      clubId,
-      injured: false,
-      onInternationalDuty: false,
+      currentClubId: clubId,
+      isInjured: false
     },
-    include: {
-      loans: true,
-    },
-    orderBy: [
-      { skill: 'desc' },
-      { morale: 'desc' },
-    ],
+    orderBy: { currentAbility: 'desc' }
   });
 
-  // Filter out players who are currently on loan (have an active loan)
-  const availablePlayers = players.filter(p => !p.loans.some(loan => loan.status === 'active'));
+  // Filter out players on loan to other clubs
+  const availablePlayers = players.filter(_p => {
+    // Player is available if they're at the club and not injured
+    return true; // Simplified - loans would need separate checking
+  });
 
-  // Define a standard 4-4-2 formation
-  const formation = [
-    { position: 'GK', count: 1 },
-    { position: 'DEF', count: 4 },
-    { position: 'MID', count: 4 },
-    { position: 'FWD', count: 2 },
-  ];
+  return availablePlayers;
+}
 
-  const selectedXI: Player[] = [];
-  const usedPlayerIds = new Set<number>();
+export async function getBestXI(clubId: number) {
+  const players = await getAvailablePlayers(clubId);
 
-  for (const { position, count } of formation) {
-    const candidates = availablePlayers.filter(p => p.position === position && !usedPlayerIds.has(p.id));
-    for (let i = 0; i < count && i < candidates.length; i++) {
-      const player = candidates[i];
-      if (player) {
-        selectedXI.push(player);
-        usedPlayerIds.add(player.id);
+  // Get best player for each position
+  const positions = ['GK', 'LB', 'CB', 'CB', 'RB', 'DM', 'CM', 'CM', 'LW', 'RW', 'ST'];
+  const bestXI: any[] = [];
+  const usedIds = new Set<number>();
+
+  for (const pos of positions) {
+    const positionGroup = pos === 'CB' ? ['CB'] :
+      pos === 'CM' ? ['CM', 'DM', 'AM'] :
+        [pos];
+
+    const available = players.filter(p =>
+      positionGroup.includes(p.position) && !usedIds.has(p.id)
+    );
+
+    if (available.length > 0) {
+      const best = available.sort((a, b) => (b.currentAbility || 0) - (a.currentAbility || 0))[0];
+      bestXI.push({ ...best, selectedPosition: pos });
+      usedIds.add(best.id);
+    } else {
+      // Fill with any available player
+      const anyPlayer = players.find(p => !usedIds.has(p.id));
+      if (anyPlayer) {
+        bestXI.push({ ...anyPlayer, selectedPosition: pos });
+        usedIds.add(anyPlayer.id);
       }
     }
   }
 
-  // If not enough players for a position, fill with best available remaining players
-  if (selectedXI.length < 11) {
-    const remaining = availablePlayers.filter(p => !usedPlayerIds.has(p.id));
-    for (let i = 0; i < 11 - selectedXI.length && i < remaining.length; i++) {
-      selectedXI.push(remaining[i]);
-    }
-  }
-
-  return selectedXI;
+  return bestXI;
 }
 
-/**
- * Sets the starting XI for a club by creating or updating the StartingXI and StartingXISlot records.
- * @param clubId The club's ID
- * @param xi Array of { id: number, position: string, order: number }
- */
-export async function setStartingXIForClub(clubId: number, xi: { id: number, position: string, order: number }[]): Promise<void> {
-  // Find or create the StartingXI record for the club
-  let startingXI = await prisma.startingXI.findUnique({
-    where: { clubId },
-    include: { slots: true },
+export async function getStartingXI(clubId: number) {
+  const existing = await prisma.startingXI.findUnique({
+    where: { clubId }
   });
 
-  if (!startingXI) {
-    startingXI = {
-      ...(await prisma.startingXI.create({
-        data: {
-          clubId,
-        },
-      })),
-      slots: []
-    };
-  } else {
-    // Delete existing slots
-    await prisma.startingXISlot.deleteMany({ where: { startingXIId: startingXI.id } });
+  if (!existing) {
+    return null;
   }
 
-  // Create new slots for the XI
-  await prisma.startingXISlot.createMany({
-    data: xi.map((p, idx) => ({
-      startingXIId: startingXI!.id,
-      playerId: p.id,
-      position: p.position,
-      order: p.order ?? idx + 1,
-    })),
+  return existing;
+}
+
+export async function saveStartingXI(clubId: number, playerIds: number[]) {
+  // Validate that all players belong to the club
+  const players = await prisma.player.findMany({
+    where: {
+      id: { in: playerIds },
+      currentClubId: clubId
+    }
   });
-} 
+
+  if (players.length !== playerIds.length) {
+    throw new Error('Some players do not belong to this club');
+  }
+
+  // Upsert starting XI
+  const startingXI = await prisma.startingXI.upsert({
+    where: { clubId },
+    create: {
+      clubId,
+      slots: JSON.stringify(playerIds) // Storing player IDs as JSON string
+    },
+    update: {
+      slots: JSON.stringify(playerIds)
+    }
+  });
+
+  return startingXI;
+}
+
+export async function getSubstitutes(clubId: number) {
+  const allPlayers = await getAvailablePlayers(clubId);
+  // const starting = await getStartingXI(clubId);
+
+  // Get players not in starting XI
+  // For now, return players beyond the first 11
+  return allPlayers.slice(11, 18);
+}

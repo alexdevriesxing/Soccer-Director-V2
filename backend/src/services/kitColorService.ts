@@ -520,66 +520,38 @@ export class KitColorService {
     { home: { shirt: '#8800ff', shorts: '#8800ff', socks: '#8800ff' }, away: { shirt: '#ffffff', shorts: '#ffffff', socks: '#ffffff' } }
   ];
 
+  // In-memory kit storage since Club model doesn't have kit fields
+  private static readonly clubKitCache: Map<number, TeamKits> = new Map();
+
   /**
    * Get kit colors for a club, creating them if they don't exist
    */
   static async getClubKitColors(clubId: number): Promise<TeamKits> {
+    // Check in-memory cache first
+    const cached = this.clubKitCache.get(clubId);
+    if (cached) return cached;
+
+    // Get club name to generate appropriate kit colors
     const club = await prisma.club.findUnique({
       where: { id: clubId },
-      select: {
-        name: true,
-        homeKitShirt: true,
-        homeKitShorts: true,
-        homeKitSocks: true,
-        awayKitShirt: true,
-        awayKitShorts: true,
-        awayKitSocks: true
-      }
+      select: { name: true }
     });
 
     if (!club) {
       throw new Error(`Club with ID ${clubId} not found`);
     }
 
-    // Check if club has default colors (indicating they haven't been set)
-    const hasDefaultColors = club.homeKitShirt === '#ff6b6b' && club.awayKitShirt === '#4ecdc4';
-
-    if (hasDefaultColors) {
-      // Set proper colors based on club name or assign generic ones
-      const kitColors = this.getKitColorsForClub(club.name);
-      await this.updateClubKitColors(clubId, kitColors);
-      return kitColors;
-    }
-
-    return {
-      home: {
-        shirt: club.homeKitShirt,
-        shorts: club.homeKitShorts,
-        socks: club.homeKitSocks
-      },
-      away: {
-        shirt: club.awayKitShirt,
-        shorts: club.awayKitShorts,
-        socks: club.awayKitSocks
-      }
-    };
+    // Generate kit colors based on club name
+    const kitColors = this.getKitColorsForClub(club.name);
+    this.clubKitCache.set(clubId, kitColors);
+    return kitColors;
   }
 
   /**
-   * Update kit colors for a club
+   * Update kit colors for a club (stored in memory)
    */
   static async updateClubKitColors(clubId: number, kitColors: TeamKits): Promise<void> {
-    await prisma.club.update({
-      where: { id: clubId },
-      data: {
-        homeKitShirt: kitColors.home.shirt,
-        homeKitShorts: kitColors.home.shorts,
-        homeKitSocks: kitColors.home.socks,
-        awayKitShirt: kitColors.away.shirt,
-        awayKitShorts: kitColors.away.shorts,
-        awayKitSocks: kitColors.away.socks
-      }
-    });
+    this.clubKitCache.set(clubId, kitColors);
   }
 
   /**
@@ -647,26 +619,26 @@ export class KitColorService {
 
     // More sophisticated clash detection
     // Consider both shirt color similarity and overall kit pattern
-    
+
     // 1. Direct color similarity (shirt vs shirt)
     const shirtClash = distance < 80;
-    
+
     // 2. Check if both teams have similar dominant colors
     const kit1Dominant = this.getDominantColor(kit1);
     const kit2Dominant = this.getDominantColor(kit2);
-    const dominantClash = this.hexToRgb(kit1Dominant) && this.hexToRgb(kit2Dominant) && 
+    const dominantClash = this.hexToRgb(kit1Dominant) && this.hexToRgb(kit2Dominant) &&
       Math.sqrt(
         Math.pow(this.hexToRgb(kit1Dominant)!.r - this.hexToRgb(kit2Dominant)!.r, 2) +
         Math.pow(this.hexToRgb(kit1Dominant)!.g - this.hexToRgb(kit2Dominant)!.g, 2) +
         Math.pow(this.hexToRgb(kit1Dominant)!.b - this.hexToRgb(kit2Dominant)!.b, 2)
       ) < 100;
-    
+
     // 3. Check for both teams wearing white (common clash)
     const bothWhite = this.isWhite(kit1.shirt) && this.isWhite(kit2.shirt);
-    
+
     // 4. Check for both teams wearing dark colors
     const bothDark = this.isDark(kit1.shirt) && this.isDark(kit2.shirt);
-    
+
     return shirtClash || dominantClash || bothWhite || bothDark;
   }
 

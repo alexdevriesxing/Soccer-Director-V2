@@ -6,16 +6,17 @@ const prisma = new PrismaClient();
 const router = express.Router();
 
 // --- LIVE MATCH EVENTS ---
+// Uses the MatchEvent model from Prisma schema
 
 // GET /api/live-match-events/:fixtureId
 router.get('/:fixtureId', async (req: Request, res) => {
   try {
     const fixtureId = parseInt(req.params.fixtureId, 10);
-    const events = await prisma.liveMatchEvent.findMany({
+    const events = await prisma.matchEvent.findMany({
       where: { fixtureId },
       orderBy: { minute: 'asc' },
       include: {
-        player: { select: { id: true, name: true, position: true } },
+        player: { select: { id: true, firstName: true, lastName: true, position: true } },
         club: { select: { id: true, name: true } }
       }
     });
@@ -30,32 +31,31 @@ router.post('/:fixtureId', async (req: Request, res) => {
   try {
     const fixtureId = parseInt(req.params.fixtureId, 10);
     const {
-      type,
+      eventType,
       minute,
       playerId,
       clubId,
       description,
-      varReview,
-      coordinates
+      isHomeTeam
     } = req.body;
 
-    if (!type || minute == null) {
-      return res.status(400).json({ error: t('validation.missing_required_fields', (req as any).language || 'en') });
+    if (!eventType || minute == null || !clubId || isHomeTeam == null) {
+      res.status(400).json({ error: t('validation.missing_required_fields', (req as any).language || 'en') });
+      return;
     }
 
-    const event = await prisma.liveMatchEvent.create({
+    const event = await prisma.matchEvent.create({
       data: {
         fixtureId,
-        type,
+        eventType,
         minute,
         playerId,
         clubId,
         description,
-        varReview: varReview ? JSON.stringify(varReview) : undefined,
-        coordinates: coordinates ? JSON.stringify(coordinates) : undefined
+        isHomeTeam
       },
       include: {
-        player: { select: { id: true, name: true, position: true } },
+        player: { select: { id: true, firstName: true, lastName: true, position: true } },
         club: { select: { id: true, name: true } }
       }
     });
@@ -70,17 +70,19 @@ router.post('/:fixtureId', async (req: Request, res) => {
 router.patch('/:eventId', async (req: Request, res) => {
   try {
     const eventId = parseInt(req.params.eventId, 10);
-    const updateData = req.body;
-    
-    if (updateData.coordinates && typeof updateData.coordinates === 'object') {
-      updateData.coordinates = JSON.stringify(updateData.coordinates);
-    }
+    const { eventType, minute, playerId, description, isHomeTeam } = req.body;
 
-    const event = await prisma.liveMatchEvent.update({
+    const event = await prisma.matchEvent.update({
       where: { id: eventId },
-      data: updateData,
+      data: {
+        ...(eventType !== undefined && { eventType }),
+        ...(minute !== undefined && { minute }),
+        ...(playerId !== undefined && { playerId }),
+        ...(description !== undefined && { description }),
+        ...(isHomeTeam !== undefined && { isHomeTeam })
+      },
       include: {
-        player: { select: { id: true, name: true, position: true } },
+        player: { select: { id: true, firstName: true, lastName: true, position: true } },
         club: { select: { id: true, name: true } }
       }
     });
@@ -95,124 +97,36 @@ router.patch('/:eventId', async (req: Request, res) => {
 router.delete('/:eventId', async (req: Request, res) => {
   try {
     const eventId = parseInt(req.params.eventId, 10);
-    await prisma.liveMatchEvent.delete({ where: { id: eventId } });
+    await prisma.matchEvent.delete({ where: { id: eventId } });
     res.status(204).send();
   } catch (error) {
     res.status(500).json({ error: t('error.failed_to_delete_match_event', (req as any).language || 'en') });
   }
 });
 
-// --- VAR REVIEWS ---
+// --- VAR REVIEWS (stub - not part of current schema) ---
 
 // GET /api/live-match-events/:fixtureId/var-reviews
-router.get('/:fixtureId/var-reviews', async (req: Request, res) => {
-  try {
-    const fixtureId = parseInt(req.params.fixtureId, 10);
-    const varReviews = await prisma.liveMatchEvent.findMany({
-      where: { 
-        fixtureId,
-      },
-      orderBy: { minute: 'asc' },
-      include: {
-        player: { select: { id: true, name: true, position: true } },
-        club: { select: { id: true, name: true } }
-      }
-    });
-    res.json({ varReviews });
-  } catch (error) {
-    res.status(500).json({ error: t('error.failed_to_fetch_var_reviews', (req as any).language || 'en') });
-  }
+router.get('/:fixtureId/var-reviews', async (_req: Request, res) => {
+  // VAR reviews are not yet implemented in the schema
+  res.json({ varReviews: [], message: 'VAR review feature coming soon' });
 });
 
 // POST /api/live-match-events/:fixtureId/var-review
-router.post('/:fixtureId/var-review', async (req: Request, res) => {
-  try {
-    const fixtureId = parseInt(req.params.fixtureId, 10);
-    const {
-      originalEventId,
-      decision,
-      reason,
-      duration,
-      refereeConsultation
-    } = req.body;
-
-    if (!originalEventId || !decision) {
-      return res.status(400).json({ error: t('validation.missing_required_fields', (req as any).language || 'en') });
-    }
-
-    // Create VAR review event
-    const varEvent = await prisma.liveMatchEvent.create({
-      data: {
-        fixtureId,
-        type: 'VAR_REVIEW',
-        minute: 0, // Will be set based on original event
-        description: `VAR Review: ${decision} - ${reason}`,
-        varReview: {
-          originalEventId,
-          decision,
-          reason,
-          duration,
-          refereeConsultation
-        }
-      },
-      include: {
-        player: { select: { id: true, name: true, position: true } },
-        club: { select: { id: true, name: true } }
-      }
-    });
-
-    res.status(201).json({ varEvent });
-  } catch (error) {
-    res.status(500).json({ error: t('error.failed_to_create_var_review', (req as any).language || 'en') });
-  }
+router.post('/:fixtureId/var-review', async (_req: Request, res) => {
+  res.status(501).json({ message: 'VAR review feature coming soon' });
 });
 
-// --- WEATHER EVENTS ---
+// --- WEATHER EVENTS (stub - not part of current schema) ---
 
 // GET /api/live-match-events/:fixtureId/weather
-router.get('/:fixtureId/weather', async (req: Request, res) => {
-  try {
-    const fixtureId = parseInt(req.params.fixtureId, 10);
-    const weatherEvents = await prisma.liveMatchEvent.findMany({
-      where: { 
-        fixtureId,
-      },
-      orderBy: { minute: 'asc' }
-    });
-    res.json({ weatherEvents });
-  } catch (error) {
-    res.status(500).json({ error: t('error.failed_to_fetch_weather_events', (req as any).language || 'en') });
-  }
+router.get('/:fixtureId/weather', async (_req: Request, res) => {
+  res.json({ weatherEvents: [], message: 'Weather events feature coming soon' });
 });
 
 // POST /api/live-match-events/:fixtureId/weather
-router.post('/:fixtureId/weather', async (req: Request, res) => {
-  try {
-    const fixtureId = parseInt(req.params.fixtureId, 10);
-    const {
-      condition,
-      intensity,
-      minute,
-      description
-    } = req.body;
-
-    if (!condition || minute == null) {
-      return res.status(400).json({ error: t('validation.missing_required_fields', (req as any).language || 'en') });
-    }
-
-    const weatherEvent = await prisma.liveMatchEvent.create({
-      data: {
-        fixtureId,
-        type: 'WEATHER',
-        minute,
-        description,
-      }
-    });
-
-    res.status(201).json({ weatherEvent });
-  } catch (error) {
-    res.status(500).json({ error: t('error.failed_to_create_weather_event', (req as any).language || 'en') });
-  }
+router.post('/:fixtureId/weather', async (_req: Request, res) => {
+  res.status(501).json({ message: 'Weather events feature coming soon' });
 });
 
 // --- REFEREE DECISIONS ---
@@ -221,13 +135,14 @@ router.post('/:fixtureId/weather', async (req: Request, res) => {
 router.get('/:fixtureId/referee-decisions', async (req: Request, res) => {
   try {
     const fixtureId = parseInt(req.params.fixtureId, 10);
-    const refereeDecisions = await prisma.liveMatchEvent.findMany({
-      where: { 
+    const refereeDecisions = await prisma.matchEvent.findMany({
+      where: {
         fixtureId,
+        eventType: { in: ['YELLOW_CARD', 'RED_CARD', 'PENALTY', 'FREE_KICK'] }
       },
       orderBy: { minute: 'asc' },
       include: {
-        player: { select: { id: true, name: true, position: true } },
+        player: { select: { id: true, firstName: true, lastName: true, position: true } },
         club: { select: { id: true, name: true } }
       }
     });
@@ -242,29 +157,31 @@ router.post('/:fixtureId/referee-decision', async (req: Request, res) => {
   try {
     const fixtureId = parseInt(req.params.fixtureId, 10);
     const {
-      decision,
-      reason,
+      eventType,
       minute,
       playerId,
       clubId,
-      description
+      description,
+      isHomeTeam
     } = req.body;
 
-    if (!decision || minute == null) {
-      return res.status(400).json({ error: t('validation.missing_required_fields', (req as any).language || 'en') });
+    if (!eventType || minute == null || !clubId || isHomeTeam == null) {
+      res.status(400).json({ error: t('validation.missing_required_fields', (req as any).language || 'en') });
+      return;
     }
 
-    const refereeEvent = await prisma.liveMatchEvent.create({
+    const refereeEvent = await prisma.matchEvent.create({
       data: {
         fixtureId,
-        type: 'REFEREE_DECISION',
+        eventType,
         minute,
         playerId,
         clubId,
         description,
+        isHomeTeam
       },
       include: {
-        player: { select: { id: true, name: true, position: true } },
+        player: { select: { id: true, firstName: true, lastName: true, position: true } },
         club: { select: { id: true, name: true } }
       }
     });
@@ -281,26 +198,23 @@ router.post('/:fixtureId/referee-decision', async (req: Request, res) => {
 router.get('/:fixtureId/statistics', async (req: Request, res) => {
   try {
     const fixtureId = parseInt(req.params.fixtureId, 10);
-    
+
     // Get all events for the fixture
-    const events = await prisma.liveMatchEvent.findMany({
+    const events = await prisma.matchEvent.findMany({
       where: { fixtureId },
       include: {
-        player: { select: { id: true, name: true, position: true } },
+        player: { select: { id: true, firstName: true, lastName: true, position: true } },
         club: { select: { id: true, name: true } }
       }
     });
 
     // Calculate statistics
     const stats = {
-      goals: events.filter((e: any) => e.type === 'GOAL').length,
-      yellowCards: events.filter((e: any) => e.type === 'YELLOW_CARD').length,
-      redCards: events.filter((e: any) => e.type === 'RED_CARD').length,
-      varReviews: events.filter((e: any) => e.type === 'VAR_REVIEW').length,
-      injuries: events.filter((e: any) => e.type === 'INJURY').length,
-      substitutions: events.filter((e: any) => e.type === 'SUBSTITUTION').length,
-      totalXG: events.reduce((sum: number, e: any) => sum + (e.xG || 0), 0),
-      weatherEvents: events.filter((e: any) => e.type === 'WEATHER').length
+      goals: events.filter(e => e.eventType === 'GOAL').length,
+      yellowCards: events.filter(e => e.eventType === 'YELLOW_CARD').length,
+      redCards: events.filter(e => e.eventType === 'RED_CARD').length,
+      substitutions: events.filter(e => e.eventType === 'SUBSTITUTION').length,
+      totalEvents: events.length
     };
 
     res.json({ statistics: stats, events });
@@ -309,4 +223,4 @@ router.get('/:fixtureId/statistics', async (req: Request, res) => {
   }
 });
 
-export default router; 
+export default router;

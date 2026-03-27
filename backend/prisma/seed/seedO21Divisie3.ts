@@ -3,14 +3,14 @@ import { generatePlayersForClub } from './generatePlayers';
 
 // O21 Divisie 3 clubs data
 const o21Divisie3Clubs = [
-  { name: 'FC Volendam Onder 21', homeCity: 'Volendam' },
-  { name: 'TOP Oss Onder 21', homeCity: 'Oss' },
-  { name: 'SC Telstar Onder 21', homeCity: 'Velsen' },
-  { name: 'FC Eindhoven Onder 21', homeCity: 'Eindhoven' },
-  { name: 'FC Emmen Onder 21', homeCity: 'Emmen' },
-  { name: 'FC Utrecht Onder 21', homeCity: 'Utrecht' },
-  { name: 'NAC Breda Onder 21', homeCity: 'Breda' },
-  { name: 'NEC Nijmegen Onder 21', homeCity: 'Nijmegen' }
+  { name: 'FC Volendam Onder 21', city: 'Volendam' },
+  { name: 'TOP Oss Onder 21', city: 'Oss' },
+  { name: 'SC Telstar Onder 21', city: 'Velsen' },
+  { name: 'FC Eindhoven Onder 21', city: 'Eindhoven' },
+  { name: 'FC Emmen Onder 21', city: 'Emmen' },
+  { name: 'FC Utrecht Onder 21', city: 'Utrecht' },
+  { name: 'NAC Breda Onder 21', city: 'Breda' },
+  { name: 'NEC Nijmegen Onder 21', city: 'Nijmegen' }
 ];
 
 export async function seedO21Divisie3(prisma: PrismaClient) {
@@ -18,8 +18,7 @@ export async function seedO21Divisie3(prisma: PrismaClient) {
   const league = await prisma.league.create({
     data: {
       name: 'O21 Divisie 3',
-      tier: 'O21_DIVISIE_3',
-      season: '2024-2025',
+      tier: 8, level: 'O21 Divisie 3',
     },
   });
 
@@ -28,7 +27,7 @@ export async function seedO21Divisie3(prisma: PrismaClient) {
     const createdClub = await prisma.club.create({
       data: {
         name: club.name,
-        homeCity: club.homeCity,
+        city: club.city,
         leagueId: league.id,
       },
     });

@@ -9,7 +9,7 @@ router.get('/game-state', async (req, res) => {
   try {
     const gameStateService = GameStateService.getInstance();
     const gameState = gameStateService.getGameState();
-    
+
     res.json({
       currentWeek: gameState.currentWeek,
       currentSeason: gameState.currentSeason,
@@ -26,7 +26,7 @@ router.post('/game-state/advance-week', async (req, res) => {
   try {
     const gameStateService = GameStateService.getInstance();
     await gameStateService.advanceWeek();
-    
+
     const newGameState = gameStateService.getGameState();
     res.json({
       message: 'Week advanced successfully',
@@ -46,17 +46,17 @@ router.put('/game-state/week', async (req, res) => {
     if (!week || typeof week !== 'number') {
       return res.status(400).json({ error: 'Week must be a number' });
     }
-    
+
     const gameStateService = GameStateService.getInstance();
     await gameStateService.setWeek(week);
-    
+
     const gameState = gameStateService.getGameState();
-    res.json({
+    return res.json({
       message: 'Week set successfully',
       currentWeek: gameState.currentWeek
     });
   } catch (error) {
-    res.status(500).json({ error: t('error.failed_to_set_week', (req as any).language || 'en') });
+    return res.status(500).json({ error: t('error.failed_to_set_week', (req as any).language || 'en') });
   }
 });
 

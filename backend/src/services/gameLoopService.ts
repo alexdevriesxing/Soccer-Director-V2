@@ -25,36 +25,36 @@ export class GameLoopService {
   public async processWeek(): Promise<void> {
     const currentWeek = this.gameState.getCurrentWeek();
     const currentSeason = this.gameState.getCurrentSeason();
-    
+
     console.log(`Processing week ${currentWeek} of ${currentSeason}...`);
 
     // 1. Process all fixtures for the current week
     await this.processFixtures();
-    
+
     // 2. Update league tables based on match results (stubbed for now; handled inside CompetitionService flows)
     // TODO: implement competitionService.updateLeagueTables(currentSeason)
-    
+
     // 3. Update player fitness and morale
     await this.updatePlayerStates();
-    
+
     // 4. Process injuries and suspensions
     await this.processInjuriesAndSuspensions();
-    
+
     // 5. Process transfers if window is open (stubbed)
     if (this.gameState.getTransferWindow() === 'open') {
       await this.processTransfers();
     }
-    
+
     // 6. Check for season end and handle promotions/relegations (stubbed)
     if (this.isEndOfSeason(currentWeek)) {
       await this.processSeasonEnd(currentSeason);
     }
-    
+
     // 7. Advance the game week
     await this.gameState.advanceWeek();
     this.logWeekComplete(currentWeek);
   }
-  
+
   /**
    * Check if the current week is the end of the season
    */
@@ -62,7 +62,7 @@ export class GameLoopService {
     // Assuming a 38-week season (like most European leagues)
     return week >= 38;
   }
-  
+
   /**
    * Handle end of season logic
    */
@@ -71,15 +71,17 @@ export class GameLoopService {
     // TODO: hook into CompetitionService season pipeline once finalized
     return;
   }
-  
+
   /**
    * Get the next season string (e.g., '2025/2026' -> '2026/2027')
    */
+  /*
   private getNextSeason(currentSeason: string): string {
     const [startYear, endYear] = currentSeason.split('/').map(Number);
     return `${startYear + 1}/${endYear + 1}`;
   }
-  
+  */
+
   /**
    * Log end-of-week processing
    */
@@ -90,7 +92,7 @@ export class GameLoopService {
   private async processFixtures(): Promise<void> {
     const currentWeek = this.gameState.getCurrentWeek();
     const currentSeason = this.gameState.getCurrentSeason();
-    
+
     // Get all fixtures for the current week
     const fixtures = await this.prisma.fixture.findMany({
       where: {
@@ -129,7 +131,9 @@ export class GameLoopService {
   }
 
   // League table updates are handled within CompetitionService; no-op here for now
+  /*
   private async updateLeagueTables(): Promise<void> { return; }
+  */
 
   private async processTransfers(): Promise<void> {
     // Stubbed

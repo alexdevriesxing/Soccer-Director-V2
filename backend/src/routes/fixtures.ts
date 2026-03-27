@@ -32,9 +32,9 @@ router.post('/:id/tactical-change', async (req, res) => {
         effectiveness,
       },
     });
-    res.json(tacticalChange);
+    return res.json(tacticalChange);
   } catch (error) {
-    res.status(500).json({ error: 'Failed to record tactical change.' });
+    return res.status(500).json({ error: 'Failed to record tactical change.' });
   }
 });
 
@@ -43,15 +43,15 @@ router.get('/live', async (req, res) => {
   try {
     // Get all currently live matches from the WebSocket service
     const liveMatches = WebSocketService.getLiveMatches();
-    
+
     // If no live matches, return empty array
     if (!liveMatches || liveMatches.length === 0) {
       return res.json([]);
     }
-    
+
     // Get fixture details for each live match
     const prisma = req.app.get('prisma');
-    const fixturePromises = liveMatches.map(matchId => 
+    const fixturePromises = liveMatches.map(matchId =>
       prisma.fixture.findUnique({
         where: { id: matchId },
         include: {
@@ -61,9 +61,9 @@ router.get('/live', async (req, res) => {
         }
       })
     );
-    
+
     const fixtures = await Promise.all(fixturePromises);
-    
+
     // Filter out any null values and add live match status
     const liveFixtures = fixtures
       .filter(fixture => fixture !== null)
@@ -76,11 +76,11 @@ router.get('/live', async (req, res) => {
           away: fixture.awayGoals || 0
         }
       }));
-    
-    res.json(liveFixtures);
+
+    return res.json(liveFixtures);
   } catch (error) {
     console.error('Error fetching live matches:', error);
-    res.status(500).json({ error: 'Failed to fetch live matches.' });
+    return res.status(500).json({ error: 'Failed to fetch live matches.' });
   }
 });
 
@@ -90,9 +90,9 @@ router.get('/:id/analysis', async (req, res) => {
     const fixtureId = parseInt(req.params.id, 10);
     const analysis = await req.app.get('MatchSimulationService').getMatchAnalysis(fixtureId);
     if (!analysis) return res.status(404).json({ error: 'No analysis found for this fixture.' });
-    res.json({ analysis });
+    return res.json({ analysis });
   } catch (error) {
-    res.status(500).json({ error: 'Failed to fetch match analysis.' });
+    return res.status(500).json({ error: 'Failed to fetch match analysis.' });
   }
 });
 

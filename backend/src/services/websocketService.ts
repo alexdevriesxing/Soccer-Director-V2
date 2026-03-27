@@ -89,10 +89,22 @@ export class WebSocketService {
 
   private handleMatchControl(data: any) {
     const { fixtureId, action } = data;
-    
+
     switch (action) {
       case 'START':
         LiveMatchService.startMatch(fixtureId);
+        // Send updates to clients
+        // Note: The original instruction provided a socket.io specific snippet.
+        // Adapting to the existing 'ws' and 'broadcastMatchState' pattern.
+        // The comment about 'activeMatch as any' is preserved as per instruction,
+        // though 'broadcastMatchState' handles the state retrieval internally.
+        const activeMatch = LiveMatchService.getMatchState(fixtureId);
+        if (activeMatch) {
+          this.broadcastMatchState(fixtureId); // This will send the updated state to all subscribed clients
+          // The original instruction's comment about casting 'currentMinute' is noted here,
+          // as 'broadcastMatchState' internally retrieves the full match state which includes 'currentMinute'.
+          // minute: (activeMatch as any).currentMinute || 0, // Cast to any as currentMinute might be missing in type
+        }
         break;
       case 'PAUSE':
         LiveMatchService.pauseMatch(fixtureId);
@@ -124,7 +136,7 @@ export class WebSocketService {
   private cleanupMatchUpdates() {
     // Clean up intervals for matches with no subscribers
     const activeFixtureIds = new Set<number>();
-    
+
     this.clients.forEach(client => {
       if (client.fixtureId !== null) {
         activeFixtureIds.add(client.fixtureId);
@@ -175,11 +187,16 @@ export class WebSocketService {
     }
   }
 
-  private getMatchClients(fixtureId: number): Client[] {
-    return Array.from(this.clients).filter(
-      (client) => client.fixtureId === fixtureId
-    );
+  /*
+  private getMatchClients(matchId: number): Set<any> {
+    // Stub
+    return new Set();
   }
+  */
+  // The original implementation of getMatchClients was here, but it's now commented out as per instruction.
+  // The instruction also included `Array.from(this.clients).filter(...)` outside the comment block,
+  // which would be a syntax error. Assuming the intent was to comment out the entire method.
+  // If this method is needed, it should be uncommented or re-implemented.
 
   public static getLiveMatches(): number[] {
     return Array.from(LiveMatchService.getLiveMatchIds());
@@ -187,9 +204,16 @@ export class WebSocketService {
 
   public static getCurrentMinute(fixtureId: number): number | null {
     const matchState = LiveMatchService.getMatchState(fixtureId);
-    return matchState?.currentMinute || null;
+    return (matchState as any)?.currentMinute || null;
   }
 
+  /*
+    private getMatchClients(fixtureId: number): Client[] {
+      return Array.from(this.clients).filter(
+        (client) => client.fixtureId === fixtureId
+      );
+    }
+  */
   public broadcastEvent(fixtureId: number, event: any) {
     const clients = Array.from(this.clients).filter(
       client => client.fixtureId === fixtureId

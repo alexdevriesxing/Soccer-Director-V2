@@ -7,7 +7,7 @@ declare module 'express-serve-static-core' {
   }
 }
 
-export function languageMiddleware(req: Request, res: Response, next: NextFunction) {
+export function languageMiddleware(req: Request, _res: Response, next: NextFunction) {
   let lang = req.headers['accept-language'] as string || req.query.lang as string || 'en';
   if (!SUPPORTED_LANGUAGES.includes(lang)) lang = 'en';
   req.language = lang;

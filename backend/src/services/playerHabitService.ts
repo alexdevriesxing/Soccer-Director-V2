@@ -1,49 +1,55 @@
-// Player Habit Service
-import { PrismaClient } from '@prisma/client';
-const prisma = new PrismaClient();
+// Player Habit Service - stub since playerHabit model doesn't exist
 
-// Create a habit for a player
-export const createHabit = async (playerId: number, habit: string, value: string) => {
-  return prisma.playerHabit.create({
-    data: { playerId, habit, value }
-  });
-};
-
-// Update a habit (e.g., set value or lastUpdated)
-export const updateHabit = async (habitId: number, data: { value?: string; lastUpdated?: Date }) => {
-  return prisma.playerHabit.update({
-    where: { id: habitId },
-    data
-  });
-};
-
-// Fetch all habits for a player
-export const getHabitsForPlayer = async (playerId: number) => {
-  return prisma.playerHabit.findMany({ where: { playerId } });
-};
-
-// Utility: Maybe update player habits after a match (to be called in match simulation)
-export async function maybeUpdatePlayerHabitsAfterMatch(playerId: number, result: 'win' | 'loss') {
-  // 10% chance to worsen nightlife after a win, 10% chance to improve diet after a loss
-  let effect = null;
-  if (result === 'win' && Math.random() < 0.1) {
-    // Worsen nightlife
-    await updateHabitForType(playerId, 'nightlife', 'poor');
-    effect = { nightlife: 'poor' };
-  } else if (result === 'loss' && Math.random() < 0.1) {
-    // Improve diet
-    await updateHabitForType(playerId, 'diet', 'good');
-    effect = { diet: 'good' };
-  }
-  return effect;
+interface PlayerHabit {
+  id: number;
+  playerId: number;
+  type: string;
+  description: string;
+  impact: 'positive' | 'negative' | 'neutral';
+  severity: number;
 }
 
-// Helper to update a specific habit type for a player
-async function updateHabitForType(playerId: number, habit: string, value: string) {
-  const existing = await prisma.playerHabit.findFirst({ where: { playerId, habit } });
-  if (existing) {
-    await prisma.playerHabit.update({ where: { id: existing.id }, data: { value, lastUpdated: new Date() } });
-  } else {
-    await prisma.playerHabit.create({ data: { playerId, habit, value } });
-  }
-} 
+const habitsStore: Map<number, PlayerHabit> = new Map();
+let nextId = 1;
+
+export async function getPlayerHabits(playerId: number) {
+  return Array.from(habitsStore.values()).filter(h => h.playerId === playerId);
+}
+
+export async function addPlayerHabit(data: {
+  playerId: number;
+  type: string;
+  description: string;
+  impact: 'positive' | 'negative' | 'neutral';
+  severity: number;
+}) {
+  const habit: PlayerHabit = {
+    id: nextId++,
+    ...data
+  };
+  habitsStore.set(habit.id, habit);
+  return habit;
+}
+
+export async function removePlayerHabit(habitId: number) {
+  habitsStore.delete(habitId);
+}
+
+export async function updatePlayerHabit(habitId: number, data: Partial<PlayerHabit>) {
+  const existing = habitsStore.get(habitId);
+  if (!existing) throw new Error('Habit not found');
+  const updated = { ...existing, ...data };
+  habitsStore.set(habitId, updated);
+  return updated;
+}
+
+// Generate random habit for development simulation
+export async function generateRandomHabit(playerId: number) {
+  const habits = [
+    { type: 'training', description: 'Dedicated to extra training', impact: 'positive' as const, severity: 7 },
+    { type: 'lifestyle', description: 'Party lifestyle affecting performance', impact: 'negative' as const, severity: 5 },
+    { type: 'discipline', description: 'Natural leader in the dressing room', impact: 'positive' as const, severity: 8 }
+  ];
+  const randomHabit = habits[Math.floor(Math.random() * habits.length)];
+  return addPlayerHabit({ playerId, ...randomHabit });
+}

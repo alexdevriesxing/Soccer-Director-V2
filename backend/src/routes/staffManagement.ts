@@ -13,9 +13,6 @@ router.get('/:clubId', async (req: Request, res) => {
     const clubId = parseInt(req.params.clubId, 10);
     const staff = await prisma.staff.findMany({
       where: { clubId },
-      include: {
-        contracts: true
-      },
       orderBy: { role: 'asc' }
     });
     res.json({ staff });
@@ -24,32 +21,29 @@ router.get('/:clubId', async (req: Request, res) => {
   }
 });
 
-// POST /api/staff/:clubId
+// POST /api/staff/:clubId - Create new staff member
 router.post('/:clubId', async (req: Request, res) => {
   try {
     const clubId = parseInt(req.params.clubId, 10);
-    const {
-      name,
-      role,
-      skill,
-      hiredDate
-    } = req.body;
+    const { firstName, lastName, role, ability, nationality, weeklyWage, dateOfBirth } = req.body;
 
-    if (!name || !role || skill == null) {
-      return res.status(400).json({ error: t('validation.missing_required_fields', (req as any).language || 'en') });
+    if (!firstName || !lastName || !role) {
+      res.status(400).json({ error: t('validation.missing_required_fields', (req as any).language || 'en') });
+      return;
     }
 
-    // Create staff member
     const staff = await prisma.staff.create({
       data: {
         clubId,
-        name,
+        firstName,
+        lastName,
+        dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : new Date('1980-01-01'), // Default DOB if missing
         role,
-        skill,
-        hiredDate: hiredDate ? new Date(hiredDate) : new Date()
-      },
-      include: {
-        contracts: true
+        ability: ability || 50,
+        nationality: nationality || 'Unknown',
+        weeklyWage: weeklyWage || 1000,
+        contractStart: new Date(),
+        contractEnd: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000) // 1 year default
       }
     });
 
@@ -59,40 +53,34 @@ router.post('/:clubId', async (req: Request, res) => {
   }
 });
 
-// GET /api/staff/:clubId/:role
+// GET /api/staff/:clubId/:role - Get staff by role
 router.get('/:clubId/:role', async (req: Request, res) => {
   try {
     const clubId = parseInt(req.params.clubId, 10);
     const role = req.params.role;
-    
+
     const staff = await prisma.staff.findMany({
       where: { clubId, role },
-      include: {
-        contracts: true
-      },
-      orderBy: { skill: 'desc' }
+      orderBy: { ability: 'desc' }
     });
-    
+
     res.json({ staff });
   } catch (error) {
     res.status(500).json({ error: t('error.failed_to_fetch_staff_by_role', (req as any).language || 'en') });
   }
 });
 
-// PUT /api/staff/:staffId
+// PUT /api/staff/:staffId - Update staff member
 router.put('/:staffId', async (req: Request, res) => {
   try {
     const staffId = parseInt(req.params.staffId, 10);
     const updateData = req.body;
-    
+
     const staff = await prisma.staff.update({
       where: { id: staffId },
-      data: updateData,
-      include: {
-        contracts: true
-      }
+      data: updateData
     });
-    
+
     res.json({ staff });
   } catch (error) {
     res.status(500).json({ error: t('error.failed_to_update_staff', (req as any).language || 'en') });
@@ -103,10 +91,6 @@ router.put('/:staffId', async (req: Request, res) => {
 router.delete('/:staffId', async (req: Request, res) => {
   try {
     const staffId = parseInt(req.params.staffId, 10);
-    
-    // Delete related records first
-    await prisma.staffContract.deleteMany({ where: { staffId } });
-    
     await prisma.staff.delete({ where: { id: staffId } });
     res.status(204).send();
   } catch (error) {
@@ -114,74 +98,68 @@ router.delete('/:staffId', async (req: Request, res) => {
   }
 });
 
-// --- STAFF CONTRACTS ---
+// --- STAFF CONTRACTS (using Staff model contract fields) ---
 
 // GET /api/staff/:staffId/contract
 router.get('/:staffId/contract', async (req: Request, res) => {
   try {
     const staffId = parseInt(req.params.staffId, 10);
-    const contract = await prisma.staffContract.findFirst({
-      where: { staffId }
+    const staff = await prisma.staff.findUnique({
+      where: { id: staffId },
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        role: true,
+        weeklyWage: true,
+        contractStart: true,
+        contractEnd: true
+      }
     });
-    res.json({ contract });
+
+    if (!staff) {
+      res.status(404).json({ error: t('error.staff_not_found', (req as any).language || 'en') });
+      return;
+    }
+
+    res.json({
+      contract: {
+        staffId: staff.id,
+        staffName: `${staff.firstName} ${staff.lastName}`,
+        role: staff.role,
+        wage: staff.weeklyWage,
+        startDate: staff.contractStart,
+        endDate: staff.contractEnd
+      }
+    });
   } catch (error) {
     res.status(500).json({ error: t('error.failed_to_fetch_staff_contract', (req as any).language || 'en') });
   }
 });
 
-// POST /api/staff/:staffId/contract
-router.post('/:staffId/contract', async (req: Request, res) => {
-  try {
-    const staffId = parseInt(req.params.staffId, 10);
-    const {
-      startDate,
-      endDate,
-      wage,
-      role
-    } = req.body;
-
-    if (!startDate || !endDate || wage == null || !role) {
-      return res.status(400).json({ error: t('validation.missing_required_fields', (req as any).language || 'en') });
-    }
-
-    const contract = await prisma.staffContract.create({
-      data: {
-        staffId,
-        clubId: 1, // TODO: Get from staff member's club
-        startDate: new Date(startDate),
-        endDate: new Date(endDate),
-        wage,
-        role
-      }
-    });
-
-    res.status(201).json({ contract });
-  } catch (error) {
-    res.status(500).json({ error: t('error.failed_to_create_staff_contract', (req as any).language || 'en') });
-  }
-});
-
-// PUT /api/staff/:staffId/contract
+// PUT /api/staff/:staffId/contract - Update contract
 router.put('/:staffId/contract', async (req: Request, res) => {
   try {
     const staffId = parseInt(req.params.staffId, 10);
-    const updateData = req.body;
-    
-    // First find the contract to get its ID
-    const existingContract = await prisma.staffContract.findFirst({
-      where: { staffId }
+    const { startDate, endDate, wage } = req.body;
+
+    const staff = await prisma.staff.update({
+      where: { id: staffId },
+      data: {
+        contractStart: startDate ? new Date(startDate) : undefined,
+        contractEnd: endDate ? new Date(endDate) : undefined,
+        weeklyWage: wage
+      }
     });
-    
-    if (!existingContract) {
-      return res.status(404).json({ error: t('error.contract_not_found', (req as any).language || 'en') });
-    }
-    
-    const contract = await prisma.staffContract.update({
-      where: { id: existingContract.id },
-      data: updateData
+
+    res.json({
+      contract: {
+        staffId: staff.id,
+        wage: staff.weeklyWage,
+        startDate: staff.contractStart,
+        endDate: staff.contractEnd
+      }
     });
-    
-    res.json({ contract });
   } catch (error) {
     res.status(500).json({ error: t('error.failed_to_update_staff_contract', (req as any).language || 'en') });
   }
@@ -193,27 +171,25 @@ router.put('/:staffId/contract', async (req: Request, res) => {
 router.get('/:clubId/analytics', async (req: Request, res) => {
   try {
     const clubId = parseInt(req.params.clubId, 10);
-    
+
     const staff = await prisma.staff.findMany({
-      where: { clubId },
-      include: {
-        contracts: true
-      }
+      where: { clubId }
     });
 
+    const now = new Date();
     const analytics = {
       totalStaff: staff.length,
-      byRole: staff.reduce((acc: any, s: any) => {
+      byRole: staff.reduce<Record<string, number>>((acc, s) => {
         acc[s.role] = (acc[s.role] || 0) + 1;
         return acc;
       }, {}),
-      averageSkill: staff.reduce((sum: number, s: any) => sum + s.skill, 0) / staff.length,
-      totalWage: staff.reduce((sum: number, s: any) => sum + (s.wage || 0), 0),
-      expiringContracts: staff.filter((s: any) => {
-        if (!s.contracts) return false;
-        const expiryDate = new Date(s.contracts.endDate);
-        const now = new Date();
-        const daysUntilExpiry = (expiryDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24);
+      averageAbility: staff.length > 0
+        ? staff.reduce((sum, s) => sum + (s.ability || 0), 0) / staff.length
+        : 0,
+      totalWages: staff.reduce((sum, s) => sum + (s.weeklyWage || 0), 0),
+      expiringContracts: staff.filter(s => {
+        if (!s.contractEnd) return false;
+        const daysUntilExpiry = (s.contractEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24);
         return daysUntilExpiry <= 90;
       }).length
     };
@@ -224,4 +200,4 @@ router.get('/:clubId/analytics', async (req: Request, res) => {
   }
 });
 
-export default router; 
+export default router;

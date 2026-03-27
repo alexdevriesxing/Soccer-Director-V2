@@ -2,120 +2,74 @@ import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 
 export async function getTransactionsForClub(clubId: number) {
-  // Return the last 12 weeks of ClubFinances for the club
-  const finances = await prisma.clubFinances.findMany({
-    where: { clubId },
-    orderBy: { week: 'desc' },
-    take: 12,
-    select: {
-      id: true,
-      season: true,
-      week: true,
-      balance: true,
-      gateReceiptsTotal: true,
-      sponsorshipTotal: true,
-      tvRightsTotal: true,
-      prizeMoneyTotal: true,
-      transferIncome: true,
-      playerWagesTotal: true,
-      staffWagesTotal: true,
-      transferExpenses: true,
-      facilityCosts: true,
-      maintenanceCosts: true,
-      debtTotal: true,
-      equityValue: true,
-      marketValue: true,
-    },
+  const finances = await prisma.clubFinances.findUnique({
+    where: { clubId }
   });
-  return finances;
+  return finances ? [finances] : [];
 }
 
-export async function requestLoan(clubId: number, amount: number, bankId: number, type: string) {
-  // Create a new CreditFacility for the club
-  const now = new Date();
-  const endDate = new Date(now);
-  endDate.setFullYear(now.getFullYear() + 1); // 1 year loan by default
-  const interestRate = 0.05; // 5% default
-  const facility = await prisma.creditFacility.create({
-    data: {
-      clubId,
-      bankId,
-      type,
-      amount,
-      usedAmount: amount,
-      interestRate,
-      startDate: now,
-      endDate,
-      status: 'active',
-    },
-  });
-  // Add funds to club finances (latest week)
-  const finances = await prisma.clubFinances.findFirst({ where: { clubId }, orderBy: { week: 'desc' } });
+export async function requestLoan(clubId: number, amount: number, _bankId: number, type: string) {
+  // Stubbed - CreditFacility model doesn't exist
+  const finances = await prisma.clubFinances.findUnique({ where: { clubId } });
   if (finances) {
-    await prisma.clubFinances.update({ where: { id: finances.id }, data: { balance: { increment: amount }, debtTotal: { increment: amount } } });
+    // Add to transfer budget instead of balance
+    await prisma.clubFinances.update({
+      where: { clubId },
+      data: { transferBudget: { increment: amount } }
+    });
   }
-  return facility;
+  return { success: true, message: `Loan of ${amount} approved (stub)`, type, amount };
 }
 
-export async function acceptInvestment(clubId: number, investorId: number, offerId: number) {
-  // Mark the offer as accepted
-  const offer = await prisma.investorOffer.update({
-    where: { id: offerId },
-    data: { status: 'accepted', boardApproval: true, shareholderApproval: true, regulatoryApproval: true },
-  });
-  // Add funds to club finances
-  const finances = await prisma.clubFinances.findFirst({ where: { clubId }, orderBy: { week: 'desc' } });
+export async function acceptInvestment(clubId: number, _investorId: number, _offerId: number) {
+  // Stubbed - InvestorOffer model doesn't exist
+  const investmentAmount = 1000000;
+  const finances = await prisma.clubFinances.findUnique({ where: { clubId } });
+
   if (finances) {
-    await prisma.clubFinances.update({ where: { id: finances.id }, data: { balance: { increment: offer.totalValue }, equityValue: { increment: offer.totalValue } } });
+    await prisma.clubFinances.update({
+      where: { clubId },
+      data: { transferBudget: { increment: investmentAmount } }
+    });
   }
-  return offer;
+  return { success: true, message: 'Investment accepted (stub)', amount: investmentAmount };
 }
 
-export async function negotiateSponsorship(clubId: number, sponsorName: string, type: string, value: number, duration: number) {
-  // Create a new Sponsorship
+export async function negotiateSponsorship(clubId: number, sponsorName: string, _type: string, value: number, duration: number) {
   const now = new Date();
   const endDate = new Date(now);
   endDate.setFullYear(now.getFullYear() + duration);
+
   const sponsorship = await prisma.sponsorship.create({
     data: {
       clubId,
-      sponsorName,
-      type,
-      value,
-      startDate: now,
-      endDate,
-      isActive: true,
-    },
+      name: sponsorName,
+      value: value,
+      duration: 3 // years
+    }
   });
-  // Add value to club finances (latest week)
-  const finances = await prisma.clubFinances.findFirst({ where: { clubId }, orderBy: { week: 'desc' } });
-  if (finances) {
-    await prisma.clubFinances.update({ where: { id: finances.id }, data: { balance: { increment: value }, sponsorshipTotal: { increment: value } } });
-  }
+
   return sponsorship;
 }
 
-export async function updateClubFinances(id: number, data: any) {
-  // Only allow updating certain fields for safety
+export async function updateClubFinances(clubId: number, data: any) {
   const allowedFields = [
-    'balance', 'season', 'week', 'gateReceiptsTotal', 'sponsorshipTotal', 'tvRightsTotal', 'prizeMoneyTotal',
-    'transferIncome', 'playerWagesTotal', 'staffWagesTotal', 'transferExpenses', 'facilityCosts', 'maintenanceCosts',
-    'transferBudget', 'wageBudget', 'debtTotal', 'equityValue', 'marketValue'
+    'transferBudget', 'wageBudget', 'matchdayIncome', 'seasonTicketIncome',
+    'sponsorship', 'tvRevenue', 'merchandising', 'wagesCurrent', 'transferSpend'
   ];
   const updateData: any = {};
   for (const key of allowedFields) {
     if (data[key] !== undefined) updateData[key] = data[key];
   }
-  return prisma.clubFinances.update({ where: { id }, data: updateData });
+  return prisma.clubFinances.update({ where: { clubId }, data: updateData });
 }
 
-export async function deleteClubFinances(id: number) {
-  await prisma.clubFinances.delete({ where: { id } });
+export async function deleteClubFinances(clubId: number) {
+  await prisma.clubFinances.delete({ where: { clubId } });
 }
 
 export async function updateSponsorship(id: number, data: any) {
-  // Only allow updating certain fields
-  const allowedFields = ['sponsorName', 'type', 'value', 'startDate', 'endDate', 'isActive'];
+  const allowedFields = ['name', 'annualValue', 'startDate', 'endDate'];
   const updateData: any = {};
   for (const key of allowedFields) {
     if (data[key] !== undefined) updateData[key] = data[key];
@@ -125,4 +79,12 @@ export async function updateSponsorship(id: number, data: any) {
 
 export async function deleteSponsorship(id: number) {
   await prisma.sponsorship.delete({ where: { id } });
-} 
+}
+
+export async function getClubFinances(clubId: number) {
+  return prisma.clubFinances.findUnique({ where: { clubId } });
+}
+
+export async function getClubSponsorships(clubId: number) {
+  return prisma.sponsorship.findMany({ where: { clubId } });
+}

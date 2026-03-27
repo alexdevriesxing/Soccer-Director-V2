@@ -288,6 +288,37 @@ const YouthAcademyPage: React.FC = () => {
               </div>
             )}
           </section>
+
+          {/* Youth Tournament Section */}
+          <section>
+            <h2 className="text-xl font-semibold mb-4">Youth Tournaments</h2>
+            {tournaments.length === 0 ? (
+              <p>No youth tournaments scheduled.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Start</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">End</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {tournaments.map((tournament) => (
+                      <tr key={tournament.id}>
+                        <td className="px-6 py-4 whitespace-nowrap">{tournament.name}</td>
+                        <td className="px-6 py-4 whitespace-nowrap">{new Date(tournament.startDate).toLocaleDateString()}</td>
+                        <td className="px-6 py-4 whitespace-nowrap">{new Date(tournament.endDate).toLocaleDateString()}</td>
+                        <td className="px-6 py-4 whitespace-nowrap">{tournament.status || 'Scheduled'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
         </div>
       )}
 

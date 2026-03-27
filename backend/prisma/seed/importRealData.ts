@@ -3,7 +3,6 @@ import axios from 'axios';
 import * as fs from 'fs';
 import * as path from 'path';
 
-const prisma = new PrismaClient();
 
 // --- CONFIG ---
 const FOOTBALL_DATA_API_KEY = 'YOUR_API_KEY_HERE'; // Get from https://www.football-data.org/client/register
@@ -21,45 +20,40 @@ const DATA_SOURCES = {
   SAMPLE_CLUBS: [
     {
       name: 'Ajax',
-      homeCity: 'Amsterdam',
+      city: 'Amsterdam',
       stadium: 'Johan Cruyff Arena',
-      regionTag: 'NLD',
       leagueId: 1,
       founded: 1900,
       colors: { home: 'Red-White', away: 'White-Red' }
     },
     {
       name: 'PSV Eindhoven',
-      homeCity: 'Eindhoven',
+      city: 'Eindhoven',
       stadium: 'Philips Stadion',
-      regionTag: 'NLD',
       leagueId: 1,
       founded: 1913,
       colors: { home: 'Red-White', away: 'White-Red' }
     },
     {
       name: 'Feyenoord',
-      homeCity: 'Rotterdam',
+      city: 'Rotterdam',
       stadium: 'De Kuip',
-      regionTag: 'NLD',
       leagueId: 1,
       founded: 1908,
       colors: { home: 'Red-White', away: 'White-Red' }
     },
     {
       name: 'AZ Alkmaar',
-      homeCity: 'Alkmaar',
+      city: 'Alkmaar',
       stadium: 'AFAS Stadion',
-      regionTag: 'NLD',
       leagueId: 1,
       founded: 1967,
       colors: { home: 'Red-White', away: 'White-Red' }
     },
     {
       name: 'FC Twente',
-      homeCity: 'Enschede',
+      city: 'Enschede',
       stadium: 'De Grolsch Veste',
-      regionTag: 'NLD',
       leagueId: 1,
       founded: 1965,
       colors: { home: 'Red-White', away: 'White-Red' }
@@ -131,8 +125,6 @@ function createLeagueIfNotExists(name: string, country: string, level: number = 
       id: 1,
       name,
       tier: `Tier ${level}`,
-      region: country,
-      division: level.toString(),
       season: '2024/25'
     }
   });
@@ -145,16 +137,12 @@ function createClubWithHistory(clubData: any) {
     create: {
       id: clubData.id || 1,
       name: clubData.name,
-      homeCity: clubData.homeCity,
+      city: clubData.homeCity,
       stadium: clubData.stadium,
       regionTag: clubData.regionTag,
       leagueId: clubData.leagueId,
-      homeKitShirt: clubData.colors?.home || 'Red',
-      awayKitShirt: clubData.colors?.away || 'White',
-      homeKitShorts: 'White',
-      awayKitShorts: 'Red',
-      homeKitSocks: 'Red',
-      awayKitSocks: 'White',
+      primaryColor: clubData.colors?.home || 'Red',
+      secondaryColor: clubData.colors?.away || 'White',
       morale: 70,
       form: 'WWDLW',
       boardExpectation: 'mid_table',
@@ -236,7 +224,7 @@ async function importFromFootballDataAPI() {
           create: {
             id: club.id,
             name: club.name,
-            homeCity: club.area?.name || null,
+            city: club.area?.name || null,
             stadium: club.venue || null,
             regionTag: club.area?.code || null,
             leagueId: dbLeague.id,
@@ -416,9 +404,8 @@ async function importFromCSV(csvPath: string) {
           create: {
             id: i * 2 - 1,
             name: home.trim(),
-            homeCity: null,
+            city: null,
             stadium: null,
-            regionTag: 'NLD',
             leagueId: 1,
             morale: 70,
             form: 'WWDLW',
@@ -433,9 +420,8 @@ async function importFromCSV(csvPath: string) {
           create: {
             id: i * 2,
             name: away.trim(),
-            homeCity: null,
+            city: null,
             stadium: null,
-            regionTag: 'NLD',
             leagueId: 1,
             morale: 70,
             form: 'WWDLW',

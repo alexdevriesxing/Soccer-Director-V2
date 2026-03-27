@@ -1,29 +1,29 @@
 import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 
-export interface FanGroup {
+// In-memory storage for FanGroup (model doesn't exist in Prisma)
+interface FanGroup {
   id: number;
   clubId: number;
   name: string;
   size: number;
-  // Removed: demands, createdAt, satisfaction
+  satisfaction: number;
 }
 
-export interface FanReaction {
+interface FanReaction {
   id: number;
   clubId: number;
-  eventType: 'match_result' | 'transfer' | 'manager_change' | 'ticket_price' | 'performance' | 'media_incident';
+  eventType: string;
   eventId: number;
-  reaction: 'positive' | 'negative' | 'neutral' | 'outraged' | 'ecstatic';
-  intensity: number; // 1-100
+  reaction: string;
+  intensity: number;
   description: string;
-  fanGroupId?: number;
   createdAt: Date;
 }
 
-export interface FanSatisfaction {
+interface FanSatisfaction {
   clubId: number;
-  overallSatisfaction: number; // 1-100
+  overallSatisfaction: number;
   matchResults: number;
   entertainment: number;
   ticketPrices: number;
@@ -33,37 +33,42 @@ export interface FanSatisfaction {
   lastUpdated: Date;
 }
 
-export class FanDynamicsService {
-  // Calculate overall fan satisfaction for a club
+const fanGroupsStore: Map<number, FanGroup> = new Map();
+const fanReactionsStore: Map<number, FanReaction> = new Map();
+let nextGroupId = 1;
+let nextReactionId = 1;
+
+class FanDynamicsService {
   static async calculateFanSatisfaction(clubId: number): Promise<FanSatisfaction> {
-    const club = await prisma.club.findUnique({
-      where: { id: clubId },
-      include: {
-        homeFixtures: true,
-        awayFixtures: true
-      }
+    // Get recent fixtures for the club
+    const fixtures = await prisma.fixture.findMany({
+      where: {
+        OR: [{ homeTeamId: clubId }, { awayTeamId: clubId }],
+        isPlayed: true
+      },
+      orderBy: { matchDate: 'desc' },
+      take: 10
     });
 
-    if (!club) throw new Error('Club not found');
-
-    // Merge home and away fixtures
-    const fixtures = [...(club.homeFixtures || []), ...(club.awayFixtures || [])];
-
-    // Calculate satisfaction factors
-    const matchResults = this.calculateMatchResultsSatisfaction(fixtures);
+    const matchResults = this.calculateMatchResultsSatisfaction(fixtures, clubId);
     const entertainment = this.calculateEntertainmentSatisfaction(fixtures);
-    const ticketPrices = this.calculateTicketPriceSatisfaction(fixtures);
-    const facilities = this.calculateFacilitiesSatisfaction(fixtures);
-    const communication = 70 + Math.random() * 20; // Simplified
-    const community = 75 + Math.random() * 15; // Simplified
+    const ticketPrices = 70; // Default
+    const facilities = 70; // Default
+    const communication = 70; // Default
+    const community = 70; // Default
 
-    const overallSatisfaction = Math.round(
-      (matchResults + entertainment + ticketPrices + facilities + communication + community) / 6
+    const overallSatisfaction = (
+      matchResults * 0.3 +
+      entertainment * 0.2 +
+      ticketPrices * 0.15 +
+      facilities * 0.15 +
+      communication * 0.1 +
+      community * 0.1
     );
 
-    const satisfaction: FanSatisfaction = {
+    return {
       clubId,
-      overallSatisfaction,
+      overallSatisfaction: Math.round(overallSatisfaction),
       matchResults,
       entertainment,
       ticketPrices,
@@ -72,351 +77,172 @@ export class FanDynamicsService {
       community,
       lastUpdated: new Date()
     };
-
-    // No fanSatisfaction model in Prisma, so just return the calculated object
-    return satisfaction;
   }
 
-  // Calculate match results satisfaction
-  private static calculateMatchResultsSatisfaction(fixtures: any[]): number {
+  static calculateMatchResultsSatisfaction(fixtures: any[], clubId: number): number {
     if (fixtures.length === 0) return 50;
 
-    const recentResults = fixtures.slice(0, 5);
-    let satisfaction = 50;
-
-    for (const fixture of recentResults) {
-      const isHome = fixture.homeClubId === fixture.clubId;
-      const goalsFor = isHome ? fixture.homeGoals : fixture.awayGoals;
-      const goalsAgainst = isHome ? fixture.awayGoals : fixture.homeGoals;
-
-      if (goalsFor > goalsAgainst) {
-        satisfaction += 10; // Win
-      } else if (goalsFor === goalsAgainst) {
-        satisfaction += 5; // Draw
-      } else {
-        satisfaction -= 5; // Loss
-      }
-
-      // Bonus for goals scored
-      satisfaction += goalsFor * 2;
-      // Penalty for goals conceded
-      satisfaction -= goalsAgainst * 1;
+    let wins = 0, draws = 0, losses = 0;
+    for (const f of fixtures) {
+      const isHome = f.homeTeamId === clubId;
+      const goalsFor = isHome ? (f.homeScore || 0) : (f.awayScore || 0);
+      const goalsAgainst = isHome ? (f.awayScore || 0) : (f.homeScore || 0);
+      if (goalsFor > goalsAgainst) wins++;
+      else if (goalsFor === goalsAgainst) draws++;
+      else losses++;
     }
 
-    return Math.max(0, Math.min(100, satisfaction));
+    const points = wins * 3 + draws;
+    const maxPoints = fixtures.length * 3;
+    return Math.round((points / maxPoints) * 100);
   }
 
-  // Calculate entertainment satisfaction
-  private static calculateEntertainmentSatisfaction(fixtures: any[]): number {
+  static calculateEntertainmentSatisfaction(fixtures: any[]): number {
     if (fixtures.length === 0) return 50;
-
-    const avgSkill = fixtures.reduce((sum: number, f: any) => sum + f.homeGoals + f.awayGoals, 0) / fixtures.length;
-    const starPlayers = fixtures.filter((f: any) => f.homeGoals + f.awayGoals > 5).length;
-    const youngPlayers = fixtures.filter((f: any) => f.homeGoals + f.awayGoals < 3).length;
-
-    let satisfaction = 50;
-
-    // Skill factor
-    satisfaction += (avgSkill - 50) * 0.5;
-
-    // Star players factor
-    satisfaction += starPlayers * 5;
-
-    // Youth factor
-    satisfaction += youngPlayers * 2;
-
-    return Math.max(0, Math.min(100, satisfaction));
+    const totalGoals = fixtures.reduce((sum, f) => sum + (f.homeScore || 0) + (f.awayScore || 0), 0);
+    const avgGoals = totalGoals / fixtures.length;
+    return Math.min(100, Math.round(avgGoals * 20)); // More goals = more entertainment
   }
 
-  // Calculate ticket price satisfaction
-  private static calculateTicketPriceSatisfaction(fixtures: any[]): number {
-    if (fixtures.length === 0) return 70;
-
-    const avgTicketPrice = fixtures.reduce((sum: number, f: any) => sum + f.avgTicketPrice, 0) / fixtures.length;
-    const baseSatisfaction = 80;
-
-    // Lower prices = higher satisfaction
-    if (avgTicketPrice < 20) {
-      return baseSatisfaction + 15;
-    } else if (avgTicketPrice < 30) {
-      return baseSatisfaction + 5;
-    } else if (avgTicketPrice < 40) {
-      return baseSatisfaction - 5;
-    } else {
-      return baseSatisfaction - 15;
-    }
-  }
-
-  // Calculate facilities satisfaction
-  private static calculateFacilitiesSatisfaction(fixtures: any[]): number {
-    if (fixtures.length === 0) return 60;
-
-    const avgLevel = fixtures.reduce((sum: number, f: any) => sum + f.facilityLevel, 0) / fixtures.length;
-    const satisfaction = 50 + avgLevel * 5;
-
-    return Math.max(0, Math.min(100, satisfaction));
-  }
-
-  // Create fan group
-  static async createFanGroup(
-    clubId: number,
-    name: string,
-    size: number
-  ): Promise<FanGroup> {
-    const fanGroup: FanGroup = {
-      id: 0,
+  static async createFanGroup(clubId: number, name: string, size: number): Promise<FanGroup> {
+    const group: FanGroup = {
+      id: nextGroupId++,
       clubId,
       name,
       size,
-      // Removed: demands, createdAt, satisfaction
+      satisfaction: 70
     };
-
-    const created = await prisma.fanGroup.create({
-      data: {
-        clubId,
-        name,
-        size,
-        // Removed: demands, createdAt, satisfaction
-      }
-    });
-
-    return { ...fanGroup, id: created.id };
+    fanGroupsStore.set(group.id, group);
+    return group;
   }
 
-  // Get fan groups for a club
   static async getFanGroups(clubId: number): Promise<FanGroup[]> {
-    const groups = await prisma.fanGroup.findMany({
-      where: { clubId },
-      orderBy: { size: 'desc' }
-    });
-
-    return groups;
+    return Array.from(fanGroupsStore.values()).filter(g => g.clubId === clubId);
   }
 
-  // Update fan group satisfaction
   static async updateFanGroupSatisfaction(groupId: number, satisfaction: number): Promise<void> {
-    // No satisfaction field in FanGroup model, so this is a no-op or can be removed
-    return;
+    const group = fanGroupsStore.get(groupId);
+    if (group) {
+      group.satisfaction = satisfaction;
+      fanGroupsStore.set(groupId, group);
+    }
   }
 
-  // Trigger automatic fan reactions based on club events
   static async triggerAutomaticFanReactions(clubId: number): Promise<FanReaction[]> {
-    const club = await prisma.club.findUnique({
-      where: { id: clubId },
-      include: {
-        homeFixtures: {
-          where: { played: true },
-          orderBy: { week: 'desc' },
-          take: 1
-        },
-        awayFixtures: {
-          where: { played: true },
-          orderBy: { week: 'desc' },
-          take: 1
-        },
-        finances: { orderBy: { season: 'desc' }, take: 1 }
-      }
-    });
-
-    if (!club) throw new Error('Club not found');
-
     const reactions: FanReaction[] = [];
 
-    // React to recent match results
-    if (club.homeFixtures.length > 0 || club.awayFixtures.length > 0) {
-      const latestFixture = club.homeFixtures.length > 0 ? club.homeFixtures[0] : club.awayFixtures[0];
-      const isHome = latestFixture.homeClubId === clubId;
-      const goalsFor = isHome ? latestFixture.homeGoals : latestFixture.awayGoals;
-      const goalsAgainst = isHome ? latestFixture.awayGoals : latestFixture.homeGoals;
-      if (goalsFor != null && goalsAgainst != null) {
-        let reaction: string;
-        let intensity: number;
-        let description: string;
-
-        if (goalsFor > goalsAgainst) {
-          reaction = 'positive';
-          intensity = 70 + Math.random() * 20;
-          description = `Fans celebrate ${goalsFor}-${goalsAgainst} victory`;
-        } else if (goalsFor === goalsAgainst) {
-          reaction = 'neutral';
-          intensity = 40 + Math.random() * 20;
-          description = `Fans react to ${goalsFor}-${goalsAgainst} draw`;
-        } else {
-          reaction = 'negative';
-          intensity = 60 + Math.random() * 30;
-          description = `Fans disappointed with ${goalsFor}-${goalsAgainst} loss`;
-        }
-        // No fanReaction model, so skip creating reactions
-      }
-    }
-
-    // React to financial changes
-    if (club.finances.length > 0) {
-      const finances = club.finances[0];
-      // No avgTicketPrice field or fanReaction model, so skip this logic
-    }
-
-    // React to player transfers
-    const recentTransfers = await prisma.transfer.findMany({
-      where: { 
-        OR: [
-          { fromClubId: clubId },
-          { toClubId: clubId }
-        ]
+    // Check recent match results
+    const recentFixtures = await prisma.fixture.findMany({
+      where: {
+        OR: [{ homeTeamId: clubId }, { awayTeamId: clubId }],
+        isPlayed: true
       },
-      orderBy: { date: 'desc' },
+      orderBy: { matchDate: 'desc' },
       take: 1
     });
 
-    if (recentTransfers.length > 0) {
-      const transfer = recentTransfers[0];
-      const isIncoming = transfer.toClubId === clubId;
+    if (recentFixtures.length > 0) {
+      const lastMatch = recentFixtures[0];
+      const isHome = lastMatch.homeTeamId === clubId;
+      const goalsFor = isHome ? (lastMatch.homeScore || 0) : (lastMatch.awayScore || 0);
+      const goalsAgainst = isHome ? (lastMatch.awayScore || 0) : (lastMatch.homeScore || 0);
 
-      if (isIncoming) {
-        // No fanReaction model, so skip creating reactions
+      let reaction: FanReaction;
+      if (goalsFor > goalsAgainst) {
+        reaction = {
+          id: nextReactionId++,
+          clubId,
+          eventType: 'match_result',
+          eventId: lastMatch.id,
+          reaction: goalsFor - goalsAgainst >= 3 ? 'ecstatic' : 'positive',
+          intensity: Math.min(100, (goalsFor - goalsAgainst) * 25),
+          description: `Fans celebrate ${goalsFor}-${goalsAgainst} victory`,
+          createdAt: new Date()
+        };
+      } else if (goalsFor === goalsAgainst) {
+        reaction = {
+          id: nextReactionId++,
+          clubId,
+          eventType: 'match_result',
+          eventId: lastMatch.id,
+          reaction: 'neutral',
+          intensity: 30,
+          description: `Mixed feelings about ${goalsFor}-${goalsAgainst} draw`,
+          createdAt: new Date()
+        };
       } else {
-        // No fanReaction model, so skip creating reactions
+        reaction = {
+          id: nextReactionId++,
+          clubId,
+          eventType: 'match_result',
+          eventId: lastMatch.id,
+          reaction: goalsAgainst - goalsFor >= 3 ? 'outraged' : 'negative',
+          intensity: Math.min(100, (goalsAgainst - goalsFor) * 25),
+          description: `Fans disappointed by ${goalsFor}-${goalsAgainst} loss`,
+          createdAt: new Date()
+        };
       }
+      fanReactionsStore.set(reaction.id, reaction);
+      reactions.push(reaction);
     }
 
     return reactions;
   }
 
-  // Get fan analytics for a club
   static async getFanAnalytics(clubId: number): Promise<any> {
     const satisfaction = await this.calculateFanSatisfaction(clubId);
-    // No fan reactions model or method, so skip reactions
-    const reactions: FanReaction[] = [];
     const groups = await this.getFanGroups(clubId);
+    const reactions = Array.from(fanReactionsStore.values()).filter(r => r.clubId === clubId);
 
-    const analytics = {
+    return {
       satisfaction,
-      reactionTrends: this.analyzeReactionTrends(reactions),
-      groupInfluence: this.analyzeGroupInfluence(groups),
-      fanSentiment: this.calculateFanSentiment(reactions),
+      groups,
+      recentReactions: reactions.slice(-10),
+      sentiment: this.calculateFanSentiment(reactions),
       recommendations: this.generateFanRecommendations(satisfaction, reactions, groups)
     };
-
-    return analytics;
   }
 
-  // Analyze reaction trends
-  private static analyzeReactionTrends(reactions: FanReaction[]): any {
-    const trends: { [key: string]: number } = {
-      positive: 0,
-      negative: 0,
-      neutral: 0,
-      outraged: 0,
-      ecstatic: 0
-    };
-
-    for (const reaction of reactions) {
-      if (trends[reaction.reaction] !== undefined) {
-        trends[reaction.reaction]++;
-      }
-    }
-
-    const total = reactions.length;
-    if (total > 0) {
-      for (const key in trends) {
-        trends[key] = Math.round((trends[key] / total) * 100);
-      }
-    }
-
-    return trends;
-  }
-
-  // Analyze group influence
-  private static analyzeGroupInfluence(groups: FanGroup[]): any {
-    const influence = {
-      ultras: 0,
-      casual: 0,
-      family: 0,
-      corporate: 0,
-      international: 0
-    };
-
-          for (const group of groups) {
-        // Map group names to influence types
-        const groupType = group.name.toLowerCase().includes('ultra') ? 'ultras' :
-                         group.name.toLowerCase().includes('casual') ? 'casual' :
-                         group.name.toLowerCase().includes('family') ? 'family' :
-                         group.name.toLowerCase().includes('corporate') ? 'corporate' :
-                         group.name.toLowerCase().includes('international') ? 'international' : 'casual';
-        influence[groupType] += group.size;
-      }
-
-    return influence;
-  }
-
-  // Calculate fan sentiment
-  private static calculateFanSentiment(reactions: FanReaction[]): number {
+  static calculateFanSentiment(reactions: FanReaction[]): number {
     if (reactions.length === 0) return 50;
 
-    let sentiment = 50;
-    let totalWeight = 0;
+    const sentimentMap: Record<string, number> = {
+      'ecstatic': 100,
+      'positive': 75,
+      'neutral': 50,
+      'negative': 25,
+      'outraged': 0
+    };
 
-    for (const reaction of reactions) {
-      const weight = reaction.intensity / 100;
-      let score = 50;
-
-      switch (reaction.reaction) {
-        case 'ecstatic':
-          score = 90;
-          break;
-        case 'positive':
-          score = 75;
-          break;
-        case 'neutral':
-          score = 50;
-          break;
-        case 'negative':
-          score = 25;
-          break;
-        case 'outraged':
-          score = 10;
-          break;
-      }
-
-      sentiment += score * weight;
-      totalWeight += weight;
-    }
-
-    return totalWeight > 0 ? Math.round(sentiment / totalWeight) : 50;
+    const total = reactions.reduce((sum, r) => sum + (sentimentMap[r.reaction] || 50), 0);
+    return Math.round(total / reactions.length);
   }
 
-  // Generate fan recommendations
-  private static generateFanRecommendations(
-    satisfaction: FanSatisfaction,
-    reactions: FanReaction[],
-    groups: FanGroup[]
-  ): string[] {
-    const recommendations = [];
+  static generateFanRecommendations(satisfaction: FanSatisfaction, _reactions: FanReaction[], _groups: FanGroup[]): string[] {
+    const recommendations: string[] = [];
 
-    if (satisfaction.overallSatisfaction < 60) {
-      recommendations.push('Consider improving match day experience');
+    if (satisfaction.matchResults < 50) {
+      recommendations.push('Focus on improving team performance to boost fan morale');
     }
-
-    if (satisfaction.ticketPrices < 60) {
+    if (satisfaction.entertainment < 50) {
+      recommendations.push('Consider more attacking tactics for entertainment value');
+    }
+    if (satisfaction.ticketPrices < 50) {
       recommendations.push('Review ticket pricing strategy');
     }
-
-    if (satisfaction.facilities < 60) {
-      recommendations.push('Upgrade stadium facilities');
+    if (satisfaction.facilities < 50) {
+      recommendations.push('Invest in stadium facilities upgrades');
+    }
+    if (satisfaction.communication < 50) {
+      recommendations.push('Improve communication with fan groups');
     }
 
-    const negativeReactions = reactions.filter(r => r.reaction === 'negative' || r.reaction === 'outraged');
-    if (negativeReactions.length > reactions.length * 0.4) {
-      recommendations.push('Address fan concerns through better communication');
-    }
-
-    const influentialGroups = groups.filter(g => g.size > 10); // Assuming size is the indicator
-    if (influentialGroups.length > 0) {
-      recommendations.push('Engage with influential fan groups');
+    if (recommendations.length === 0) {
+      recommendations.push('Fan satisfaction is healthy - maintain current strategy');
     }
 
     return recommendations;
   }
 }
 
-export default FanDynamicsService; 
+export default FanDynamicsService;

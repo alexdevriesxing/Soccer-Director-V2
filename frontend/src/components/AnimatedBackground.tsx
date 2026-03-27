@@ -2,12 +2,12 @@ import React from 'react';
 
 // You may need to adjust these paths if you move images to public/assets
 const silhouettes = [
-  '/images/soccer_silhouette1.png',
-  '/images/soccer_silhouette3.png',
-  '/images/soccer_silhouette4.png',
-  '/images/soccer_silhouette5.png',
-  '/images/soccer_silhouette6.png',
-  '/images/soccer_silhouette7.png',
+  '/Images/soccer_silhouette1.png',
+  '/Images/soccer_silhouette3.png',
+  '/Images/soccer_silhouette4.png',
+  '/Images/soccer_silhouette5.png',
+  '/Images/soccer_silhouette6.png',
+  '/Images/soccer_silhouette7.png',
 ];
 
 const AnimatedBackground: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -54,7 +54,7 @@ const AnimatedBackground: React.FC<{ children: React.ReactNode }> = ({ children 
         whiteSpace: 'nowrap',
         pointerEvents: 'none',
       }}>
-        Soccer Director 2025
+        Soccer Director 2026
       </div>
       {/* Keyframes for animation */}
       <style>{`

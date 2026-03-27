@@ -1,7 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import { getRandomFrom as getRandomFromBase } from './generatePlayers';
 
-const prisma = new PrismaClient();
 
 function getRandomInt(min: number, max: number) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
@@ -193,10 +192,7 @@ export async function seedForeignPlayers(prisma: any) {
     league = await prisma.league.create({
       data: {
         name: 'Foreign Clubs',
-        tier: 'foreign',
-        region: 'Europe',
-        division: 'none',
-        season: '2024/25',
+        tier: 99, level: 'Foreign',
       },
     });
   }
@@ -209,17 +205,13 @@ export async function seedForeignPlayers(prisma: any) {
         data: {
           name: club.name,
           leagueId: league.id,
-          homeCity: club.country,
+          city: club.country,
           boardExpectation: 'Compete',
           morale: 70,
           form: '',
           regionTag: club.country,
-          homeKitShirt: '#cccccc',
-          homeKitShorts: '#cccccc',
-          homeKitSocks: '#cccccc',
-          awayKitShirt: '#eeeeee',
-          awayKitShorts: '#eeeeee',
-          awayKitSocks: '#eeeeee',
+          primaryColor: '#cccccc',
+          secondaryColor: '#eeeeee',
           isJongTeam: false,
           eligibleForPromotion: false,
         },

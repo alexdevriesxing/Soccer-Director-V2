@@ -49,9 +49,9 @@ async function main() {
             const clubName = `Zondag Club ${i + 1} (${suffix})`;
             return {
               name: clubName,
-              homeCity: getHomeCity(`Zondag Club ${i + 1}`),
+              city: getHomeCity(`Zondag Club ${i + 1}`),
               boardExpectation: getBoardExpectation(i + 1),
-              homeKitShirt: getKitColors(`Zondag Club ${i + 1}`).shirt,
+              primaryColor: getKitColors(`Zondag Club ${i + 1}`).shirt,
               homeKitShorts: getKitColors(`Zondag Club ${i + 1}`).shorts,
               homeKitSocks: getKitColors(`Zondag Club ${i + 1}`).socks,
               morale: 70 + (14 - i) * 1.5, // Higher for top clubs

@@ -9,7 +9,7 @@ const createRateLimiter = (minutes: number, maxRequests: number) => {
     standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
     legacyHeaders: false, // Disable the `X-RateLimit-*` headers
     message: `Too many requests from this IP, please try again after ${minutes} minutes`,
-    handler: (req: Request, res: Response, next: NextFunction) => {
+    handler: (_req: Request, _res: Response, next: NextFunction) => {
       next(
         new AppError(
           `Too many requests from this IP, please try again in ${minutes} minutes`,

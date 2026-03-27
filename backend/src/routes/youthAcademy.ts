@@ -5,11 +5,20 @@ import { t } from '../utils/i18n';
 const router = express.Router();
 const prisma = new PrismaClient();
 
+// In-memory stubs for models that don't exist in Prisma schema
+interface YouthScout { id: number; clubId: number; name: string; region: string; ability: number; network: number; }
+interface ScoutingReport { id: number; scoutId: number; playerName: string; date: Date; rating: number; }
+
+const youthScouts: Map<number, YouthScout> = new Map();
+const scoutingReports: Map<number, ScoutingReport> = new Map();
+let nextScoutId = 1;
+// const _nextReportId = 1;
+
 // --- YOUTH SCOUTS ---
 // GET /api/youth-scouts
 router.get('/youth-scouts', async (req, res) => {
   try {
-    const scouts = await prisma.youthScout.findMany();
+    const scouts = Array.from(youthScouts.values());
     res.json({ scouts });
   } catch (error) {
     res.status(500).json({ error: t('error.failed_to_fetch_youth_scouts', (req as any).language || 'en') });
@@ -20,8 +29,12 @@ router.get('/youth-scouts', async (req, res) => {
 router.post('/youth-scout', async (req, res) => {
   try {
     const { clubId, name, region, ability, network } = req.body;
-    if (!clubId || !name || !region || ability == null || network == null) return res.status(400).json({ error: t('validation.missing_required_fields', (req as any).language || 'en') });
-    const scout = await prisma.youthScout.create({ data: { clubId, name, region, ability, network } });
+    if (!clubId || !name || !region || ability == null || network == null) {
+      res.status(400).json({ error: t('validation.missing_required_fields', (req as any).language || 'en') });
+      return;
+    }
+    const scout: YouthScout = { id: nextScoutId++, clubId, name, region, ability, network };
+    youthScouts.set(scout.id, scout);
     res.status(201).json({ scout });
   } catch (error) {
     res.status(500).json({ error: t('error.failed_to_add_youth_scout', (req as any).language || 'en') });
@@ -32,9 +45,15 @@ router.post('/youth-scout', async (req, res) => {
 router.patch('/youth-scout/:id', async (req, res) => {
   try {
     const id = parseInt(req.params.id, 10);
+    const existing = youthScouts.get(id);
+    if (!existing) {
+      res.status(404).json({ error: 'Scout not found' });
+      return;
+    }
     const { name, region, ability, network } = req.body;
-    const scout = await prisma.youthScout.update({ where: { id }, data: { name, region, ability, network } });
-    res.json({ scout });
+    const updated = { ...existing, name: name || existing.name, region: region || existing.region, ability: ability ?? existing.ability, network: network ?? existing.network };
+    youthScouts.set(id, updated);
+    res.json({ scout: updated });
   } catch (error) {
     res.status(500).json({ error: t('error.failed_to_update_youth_scout', (req as any).language || 'en') });
   }
@@ -44,22 +63,25 @@ router.patch('/youth-scout/:id', async (req, res) => {
 router.delete('/youth-scout/:id', async (req, res) => {
   try {
     const id = parseInt(req.params.id, 10);
-    await prisma.youthScout.delete({ where: { id } });
+    youthScouts.delete(id);
     res.json({ success: true });
   } catch (error) {
     res.status(500).json({ error: t('error.failed_to_delete_youth_scout', (req as any).language || 'en') });
   }
 });
 
-// --- SCOUTING ASSIGNMENTS & REPORTS ---
+// --- SCOUTING REPORTS ---
 // POST /api/youth-scout/:id/assignment
 router.post('/youth-scout/:id/assignment', async (req, res) => {
   try {
     const scoutId = parseInt(req.params.id, 10);
     const { region, ageGroup, position } = req.body;
-    if (!region || !ageGroup || !position) return res.status(400).json({ error: t('validation.missing_required_fields', (req as any).language || 'en') });
-    const assignment = await prisma.scoutSpecializations.create({ data: { scoutId, region, ageGroup, position, skill: 50 } });
-    res.status(201).json({ assignment });
+    if (!region || !ageGroup || !position) {
+      res.status(400).json({ error: t('validation.missing_required_fields', (req as any).language || 'en') });
+      return;
+    }
+    // Return stub assignment
+    res.status(201).json({ assignment: { scoutId, region, ageGroup, position, message: 'Assignment created (stub)' } });
   } catch (error) {
     res.status(500).json({ error: t('error.failed_to_create_assignment', (req as any).language || 'en') });
   }
@@ -69,7 +91,7 @@ router.post('/youth-scout/:id/assignment', async (req, res) => {
 router.get('/youth-scout/:id/reports', async (req, res) => {
   try {
     const scoutId = parseInt(req.params.id, 10);
-    const reports = await prisma.scoutingReports.findMany({ where: { scoutId }, orderBy: { date: 'desc' } });
+    const reports = Array.from(scoutingReports.values()).filter(r => r.scoutId === scoutId);
     res.json({ reports });
   } catch (error) {
     res.status(500).json({ error: t('error.failed_to_fetch_reports', (req as any).language || 'en') });
@@ -81,8 +103,15 @@ router.get('/youth-scout/:id/reports', async (req, res) => {
 router.post('/youth/promote', async (req, res) => {
   try {
     const { playerIds, toClubId } = req.body;
-    if (!Array.isArray(playerIds) || !toClubId) return res.status(400).json({ error: t('validation.missing_required_fields', (req as any).language || 'en') });
-    await prisma.player.updateMany({ where: { id: { in: playerIds } }, data: { clubId: toClubId } });
+    if (!Array.isArray(playerIds) || !toClubId) {
+      res.status(400).json({ error: t('validation.missing_required_fields', (req as any).language || 'en') });
+      return;
+    }
+    // Use currentClubId instead of clubId
+    await prisma.player.updateMany({
+      where: { id: { in: playerIds } },
+      data: { currentClubId: toClubId }
+    });
     res.json({ success: true });
   } catch (error) {
     res.status(500).json({ error: t('error.failed_to_promote_youth', (req as any).language || 'en') });
@@ -91,12 +120,11 @@ router.post('/youth/promote', async (req, res) => {
 
 // --- YOUTH TOURNAMENTS ---
 // GET /api/youth-tournaments
-router.get('/youth-tournaments', async (req, res) => {
+router.get('/youth-tournaments', async (_req, res) => {
   try {
-    const tournaments = await prisma.youthTournaments.findMany({ orderBy: { year: 'desc' } });
-    res.json({ tournaments });
+    res.json({ tournaments: [], message: 'Youth tournaments feature coming soon' });
   } catch (error) {
-    res.status(500).json({ error: t('error.failed_to_fetch_tournaments', (req as any).language || 'en') });
+    res.status(500).json({ error: 'Failed to fetch tournaments' });
   }
 });
 
@@ -104,24 +132,23 @@ router.get('/youth-tournaments', async (req, res) => {
 router.post('/youth-tournament/join', async (req, res) => {
   try {
     const { tournamentId, clubId } = req.body;
-    if (!tournamentId || !clubId) return res.status(400).json({ error: t('validation.missing_required_fields', (req as any).language || 'en') });
-    // This assumes a relation table for participants, which may need to be added to the schema
-    // For now, just return success
+    if (!tournamentId || !clubId) {
+      res.status(400).json({ error: 'Missing required fields' });
+      return;
+    }
     res.json({ success: true, message: 'Joined tournament (stub)' });
   } catch (error) {
-    res.status(500).json({ error: t('error.failed_to_join_tournament', (req as any).language || 'en') });
+    res.status(500).json({ error: 'Failed to join tournament' });
   }
 });
 
 // GET /api/youth-tournament/:id/results
-router.get('/youth-tournament/:id/results', async (req, res) => {
+router.get('/youth-tournament/:id/results', async (_req, res) => {
   try {
-    const id = parseInt(req.params.id, 10);
-    // This assumes a results table or logic, which may need to be added
     res.json({ results: [], message: 'Results endpoint (stub)' });
   } catch (error) {
-    res.status(500).json({ error: t('error.failed_to_fetch_tournament_results', (req as any).language || 'en') });
+    res.status(500).json({ error: 'Failed to fetch tournament results' });
   }
 });
 
-export default router; 
+export default router;

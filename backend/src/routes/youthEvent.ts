@@ -1,29 +1,36 @@
-import express from 'express';
+import express, { Request, Response } from 'express';
 import { generateOffFieldEvent, getEventsForClub, interveneInEvent } from '../services/youthEventService';
-import { t } from '../utils/i18n';
 
 const router = express.Router();
 
-// GET /api/youth-event/list/:clubId
-router.get('/list/:clubId', async (req, res) => {
+router.get('/:clubId', async (req: Request, res: Response) => {
   try {
-    const clubId = parseInt(req.params.clubId, 10);
+    const clubId = parseInt(req.params.clubId);
     const events = await getEventsForClub(clubId);
     res.json(events);
   } catch (error) {
-    res.status(500).json({ error: t('error.failed_to_get_youth_events', (req as any).language || 'en') });
+    res.status(500).json({ error: 'Failed to fetch youth events' });
   }
 });
 
-// POST /api/youth-event/intervene
-router.post('/intervene', async (req, res) => {
+router.post('/generate', async (req: Request, res: Response) => {
   try {
-    const { eventId, action } = req.body;
-    const result = await interveneInEvent(eventId, action);
+    const { clubId } = req.body;
+    await generateOffFieldEvent(clubId);
+    res.json({ message: 'Event generated' });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to generate event' });
+  }
+});
+
+router.post('/intervene', async (req: Request, res: Response) => {
+  try {
+    const { eventId, decision } = req.body;
+    const result = await interveneInEvent(eventId, decision);
     res.json(result);
   } catch (error) {
-    res.status(500).json({ error: t('error.failed_to_intervene_in_event', (req as any).language || 'en') });
+    res.status(500).json({ error: 'Failed to intervene in event' });
   }
 });
 
-export default router; 
+export default router;

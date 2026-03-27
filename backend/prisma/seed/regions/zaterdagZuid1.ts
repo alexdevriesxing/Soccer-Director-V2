@@ -25,10 +25,10 @@ function getMorale(position: number, total: number): number {
 function getKitColors(name: string) {
   // TODO: Add real kit colors if available
   return {
-    homeKitShirt: '#ffb347',
+    primaryColor: '#ffb347',
     homeKitShorts: '#cc8e35',
     homeKitSocks: '#ffb347',
-    awayKitShirt: '#4ecdc4',
+    secondaryColor: '#4ecdc4',
     awayKitShorts: '#3da89e',
     awayKitSocks: '#4ecdc4',
   };
@@ -74,14 +74,14 @@ async function createLeagueWithClubs({ name, division, region, clubs }: LeagueWi
     await prisma.club.create({
       data: {
         name: c.name,
-        homeCity: c.homeCity || getHomeCity(c.name),
+        city: c.homeCity || getHomeCity(c.name),
         boardExpectation: c.boardExpectation || getBoardExpectation(i + 1, clubs.length),
         morale: getMorale(i + 1, clubs.length),
         regionTag: 'Zaterdag Zuid 1',
-        homeKitShirt: kit.homeKitShirt,
+        primaryColor: kit.homeKitShirt,
         homeKitShorts: kit.homeKitShorts,
         homeKitSocks: kit.homeKitSocks,
-        awayKitShirt: kit.awayKitShirt,
+        secondaryColor: kit.awayKitShirt,
         awayKitShorts: kit.awayKitShorts,
         awayKitSocks: kit.awayKitSocks,
         leagueId: league.id,

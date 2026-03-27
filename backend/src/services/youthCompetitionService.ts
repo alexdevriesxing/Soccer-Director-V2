@@ -1,31 +1,43 @@
-// Youth Competition Service
-import { PrismaClient } from '@prisma/client';
-const prisma = new PrismaClient();
+// Youth Competition Service - stub since youthCompetition model doesn't exist
 
-export const listCompetitions = async (clubId: number) => {
-  // TODO: Filter by eligibility, region, etc.
-  return prisma.youthCompetition.findMany({});
-};
+interface YouthCompetition {
+  id: number;
+  name: string;
+  type: string;
+  season: string;
+  entries: number[];
+}
 
-export const enterCompetition = async (clubId: number, competitionId: number) => {
-  // TODO: Add logic to link club to competition (requires relation table if many-to-many)
-  return { success: true, clubId, competitionId };
-};
+const competitionsStore: Map<number, YouthCompetition> = new Map();
+let nextId = 1;
 
-export const getCompetitionResults = async (competitionId: number) => {
-  // TODO: Implement logic to fetch results/standings
-  return prisma.youthCompetition.findUnique({ where: { id: competitionId } });
-};
+export async function getYouthCompetitions(_clubId: number) {
+  return Array.from(competitionsStore.values());
+}
 
-// Automation logic placeholder
-export const automateCompetitions = async (clubId: number) => {
-  const year = new Date().getFullYear();
-  const eligible = await prisma.youthTournaments.findMany({ where: { year } });
-  for (const comp of eligible) {
-    const already = await prisma.youthCompetitionEntry.findFirst({ where: { clubId, tournamentId: comp.id } });
-    if (!already) {
-      await prisma.youthCompetitionEntry.create({ data: { clubId, tournamentId: comp.id, year } });
-    }
-  }
-  return { entered: eligible.length };
-}; 
+export async function createYouthCompetition(name: string, type: string, season: string) {
+  const competition: YouthCompetition = {
+    id: nextId++,
+    name,
+    type,
+    season,
+    entries: []
+  };
+  competitionsStore.set(competition.id, competition);
+  return competition;
+}
+
+export async function enterCompetition(competitionId: number, clubId: number) {
+  const competition = competitionsStore.get(competitionId);
+  if (!competition) throw new Error('Competition not found');
+  competition.entries.push(clubId);
+  competitionsStore.set(competitionId, competition);
+  return competition;
+}
+
+export async function getCompetitionById(id: number) {
+  return competitionsStore.get(id) || null;
+}
+
+export const listCompetitions = getYouthCompetitions;
+export const getCompetitionResults = async (_competitionId: number) => { return []; }; // Stub

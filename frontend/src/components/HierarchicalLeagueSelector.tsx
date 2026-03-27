@@ -52,22 +52,24 @@ const HierarchicalLeagueSelector: React.FC<HierarchicalLeagueSelectorProps> = ({
 
   const handleLeagueSelect = (leagueId: string) => {
     onLeagueSelect(leagueId);
+    setIsDropdownOpen(false); // Close dropdown after selection
   };
 
   const renderLeagueOption = (league: LeagueData, depth: number = 0) => {
     const isSelected = selectedLeague === league.id.toString();
     return (
-      <div 
+      <div
         key={league.id}
         onClick={() => handleLeagueSelect(league.id.toString())}
-        style={{ 
+        style={{
           padding: '8px 12px',
           paddingLeft: `${depth * 20 + 12}px`,
           cursor: 'pointer',
           borderRadius: '4px',
           margin: '2px 0',
-          backgroundColor: isSelected ? 'rgba(74, 222, 128, 0.2)' : 'transparent',
-          color: isSelected ? '#4ade80' : '#e2e8f0',
+          backgroundColor: isSelected ? 'rgba(59, 130, 246, 0.15)' : 'transparent',
+          color: isSelected ? '#1d4ed8' : '#374151',
+          fontWeight: isSelected ? 500 : 400,
           transition: 'all 0.2s',
           display: 'flex',
           justifyContent: 'space-between',
@@ -75,19 +77,19 @@ const HierarchicalLeagueSelector: React.FC<HierarchicalLeagueSelectorProps> = ({
         }}
         onMouseOver={(e) => {
           const target = e.currentTarget as HTMLElement;
-          target.style.backgroundColor = 'rgba(74, 222, 128, 0.1)';
+          target.style.backgroundColor = isSelected ? 'rgba(59, 130, 246, 0.2)' : 'rgba(59, 130, 246, 0.08)';
         }}
         onMouseOut={(e) => {
           const target = e.currentTarget as HTMLElement;
           if (!isSelected) {
             target.style.backgroundColor = 'transparent';
           } else {
-            target.style.backgroundColor = 'rgba(74, 222, 128, 0.2)';
+            target.style.backgroundColor = 'rgba(59, 130, 246, 0.15)';
           }
         }}
       >
         <span>{league.name}</span>
-        <span style={{ fontSize: '0.8em', opacity: 0.7 }}>{league.clubsCount} clubs</span>
+        <span style={{ fontSize: '0.8em', color: '#6b7280' }}>{league.clubsCount} clubs</span>
       </div>
     );
   };
@@ -95,10 +97,10 @@ const HierarchicalLeagueSelector: React.FC<HierarchicalLeagueSelectorProps> = ({
   const renderRegionGroup = (regionGroup: RegionGroup, depth: number = 0) => {
     const isRegionExpanded = isExpanded(regionGroup.name);
     const hasLeagues = regionGroup.children.length > 0;
-    
+
     return (
       <div key={regionGroup.name} className="ml-2">
-        <div 
+        <div
           className={`flex items-center py-1 px-2 cursor-pointer text-sm font-medium ${hasLeagues ? 'hover:bg-gray-50' : 'opacity-70'}`}
           onClick={() => hasLeagues && toggleCategory(regionGroup.name)}
         >
@@ -129,10 +131,10 @@ const HierarchicalLeagueSelector: React.FC<HierarchicalLeagueSelectorProps> = ({
   const renderCategory = (category: CategoryGroup) => {
     const isCategoryExpanded = isExpanded(category.name);
     const hasLeagues = category.children.length > 0;
-    
+
     return (
       <div key={category.name} className="mb-1">
-        <div 
+        <div
           className={`flex items-center py-2 px-3 cursor-pointer font-semibold ${hasLeagues ? 'hover:bg-gray-50' : 'opacity-70'}`}
           onClick={() => hasLeagues && toggleCategory(category.name)}
         >
@@ -151,8 +153,8 @@ const HierarchicalLeagueSelector: React.FC<HierarchicalLeagueSelectorProps> = ({
           <div className="ml-4 mt-1">
             {category.children.map((child, index) => (
               <div key={index}>
-                {child.type === "region" 
-                  ? renderRegionGroup(child as RegionGroup) 
+                {child.type === "region"
+                  ? renderRegionGroup(child as RegionGroup)
                   : renderLeagueOption(child as LeagueData, 1)}
               </div>
             ))}
@@ -164,11 +166,11 @@ const HierarchicalLeagueSelector: React.FC<HierarchicalLeagueSelectorProps> = ({
 
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  
+
   // Get the selected league name for display
   const getSelectedLeagueName = () => {
     if (!selectedLeague) return 'Select a league...';
-    
+
     // Find the selected league in the hierarchy
     for (const category of hierarchicalLeagues) {
       for (const item of category.children) {
@@ -182,10 +184,10 @@ const HierarchicalLeagueSelector: React.FC<HierarchicalLeagueSelectorProps> = ({
         }
       }
     }
-    
+
     return 'Select a league...';
   };
-  
+
   // Filter leagues based on search term
   const filteredLeagues = hierarchicalLeagues.map(category => ({
     ...category,
@@ -193,9 +195,9 @@ const HierarchicalLeagueSelector: React.FC<HierarchicalLeagueSelectorProps> = ({
       if ('type' in item && item.type === 'region') {
         const regionGroup = item as RegionGroup;
         return regionGroup.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-               regionGroup.children.some(league => 
-                 league.name.toLowerCase().includes(searchTerm.toLowerCase())
-               );
+          regionGroup.children.some(league =>
+            league.name.toLowerCase().includes(searchTerm.toLowerCase())
+          );
       }
       return (item as LeagueData).name.toLowerCase().includes(searchTerm.toLowerCase());
     })
@@ -204,23 +206,23 @@ const HierarchicalLeagueSelector: React.FC<HierarchicalLeagueSelectorProps> = ({
   return (
     <div className="relative w-full">
       {/* Custom select button */}
-      <div 
+      <div
         className="w-full px-4 py-2 bg-white rounded-lg shadow-md border border-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 disabled:opacity-50 flex justify-between items-center cursor-pointer"
         onClick={() => setIsDropdownOpen(!isDropdownOpen)}
       >
         <span className={selectedLeague ? 'text-gray-900' : 'text-gray-400'}>
           {getSelectedLeagueName()}
         </span>
-        <svg 
-          className={`w-5 h-5 text-gray-500 transition-transform ${isDropdownOpen ? 'transform rotate-180' : ''}`} 
-          fill="none" 
-          viewBox="0 0 24 24" 
+        <svg
+          className={`w-5 h-5 text-gray-500 transition-transform ${isDropdownOpen ? 'transform rotate-180' : ''}`}
+          fill="none"
+          viewBox="0 0 24 24"
           stroke="currentColor"
         >
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
         </svg>
       </div>
-      
+
       {/* Dropdown menu */}
       {isDropdownOpen && (
         <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-50 max-h-96 overflow-y-auto">
@@ -235,7 +237,7 @@ const HierarchicalLeagueSelector: React.FC<HierarchicalLeagueSelectorProps> = ({
               onClick={(e) => e.stopPropagation()}
             />
           </div>
-          
+
           {/* League list */}
           <div className="py-1">
             {filteredLeagues.length > 0 ? (
@@ -246,10 +248,10 @@ const HierarchicalLeagueSelector: React.FC<HierarchicalLeagueSelectorProps> = ({
           </div>
         </div>
       )}
-      
+
       {/* Click outside to close dropdown */}
       {isDropdownOpen && (
-        <div 
+        <div
           className="fixed inset-0 z-40 bg-black bg-opacity-10"
           onClick={() => setIsDropdownOpen(false)}
         />

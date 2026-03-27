@@ -1,26 +1,29 @@
 // Player Personal Story Service
-import { PrismaClient } from '@prisma/client';
-const prisma = new PrismaClient();
+// import { PrismaClient } from '@prisma/client';
+// const prisma = new PrismaClient();
 
 // Create a personal story for a player
-export const createPersonalStory = async (playerId: number, type: string, description: string, startDate: Date, endDate?: Date) => {
-  return prisma.playerPersonalStory.create({
-    data: { playerId, type, description, startDate, endDate }
-  });
+// Player Personal Story Service - Stubbed
+
+// Stub in-memory store
+const storiesStore = new Map<number, any[]>();
+
+export const PlayerPersonalStoryService = {
+  getStories: async (playerId: number) => {
+    return storiesStore.get(playerId) || [];
+  },
+
+  createStory: async (playerId: number, type: string, description: string, startDate: Date, endDate?: Date) => {
+    const stories = storiesStore.get(playerId) || [];
+    const story = { id: Date.now(), playerId, type, description, startDate, endDate };
+    stories.push(story);
+    storiesStore.set(playerId, stories);
+    return story;
+  }
 };
 
-// Update a personal story (e.g., set endDate or description)
-export const updatePersonalStory = async (storyId: number, data: { endDate?: Date; description?: string }) => {
-  return prisma.playerPersonalStory.update({
-    where: { id: storyId },
-    data
-  });
-};
-
-// Fetch all personal stories for a player
-export const getPersonalStoriesForPlayer = async (playerId: number) => {
-  return prisma.playerPersonalStory.findMany({ where: { playerId } });
-};
+export const getPersonalStoriesForPlayer = PlayerPersonalStoryService.getStories;
+export const createPersonalStory = PlayerPersonalStoryService.createStory;
 
 // Utility: Maybe trigger a personal story for a player (to be called in weekly simulation)
 export async function maybeTriggerPersonalStory(playerId: number) {

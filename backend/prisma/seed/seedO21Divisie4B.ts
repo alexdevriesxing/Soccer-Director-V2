@@ -3,14 +3,14 @@ import { generatePlayersForClub } from './generatePlayers';
 
 // O21 Divisie 4B clubs data
 const o21Divisie4BClubs = [
-  { name: 'Almere City Onder 21', homeCity: 'Almere' },
-  { name: 'De Graafschap Onder 21', homeCity: 'Doetinchem' },
-  { name: 'Excelsior Onder 21', homeCity: 'Rotterdam' },
-  { name: 'FC Emmen Onder 21', homeCity: 'Emmen' },
-  { name: 'FC Volendam Onder 21', homeCity: 'Volendam' },
-  { name: 'Go Ahead Eagles Onder 21', homeCity: 'Deventer' },
-  { name: 'SC Cambuur Onder 21', homeCity: 'Leeuwarden' },
-  { name: 'SC Telstar Onder 21', homeCity: 'Velsen' }
+  { name: 'Almere City Onder 21', city: 'Almere' },
+  { name: 'De Graafschap Onder 21', city: 'Doetinchem' },
+  { name: 'Excelsior Onder 21', city: 'Rotterdam' },
+  { name: 'FC Emmen Onder 21', city: 'Emmen' },
+  { name: 'FC Volendam Onder 21', city: 'Volendam' },
+  { name: 'Go Ahead Eagles Onder 21', city: 'Deventer' },
+  { name: 'SC Cambuur Onder 21', city: 'Leeuwarden' },
+  { name: 'SC Telstar Onder 21', city: 'Velsen' }
 ];
 
 export async function seedO21Divisie4B(prisma: PrismaClient) {
@@ -18,8 +18,7 @@ export async function seedO21Divisie4B(prisma: PrismaClient) {
   const league = await prisma.league.create({
     data: {
       name: 'O21 Divisie 4B',
-      tier: 'O21_DIVISIE_4B',
-      season: '2024-2025',
+      tier: 9, level: 'O21 Divisie 4',
     },
   });
 
@@ -28,7 +27,7 @@ export async function seedO21Divisie4B(prisma: PrismaClient) {
     const createdClub = await prisma.club.create({
       data: {
         name: club.name,
-        homeCity: club.homeCity,
+        city: club.city,
         leagueId: league.id,
       },
     });

@@ -1,4 +1,4 @@
-import { PrismaClient, Prisma } from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
@@ -6,23 +6,25 @@ export class LiveMatchEventService {
   // Create a new match event
   static async createEvent(data: {
     fixtureId: number;
-    type: string;
+    eventType: string;
     minute: number;
     playerId?: number;
     clubId?: number;
     description?: string;
-    varReview?: any;
-    coordinates?: any;
+    isHomeTeam?: boolean;
   }) {
-    return await prisma.liveMatchEvent.create({
+    return await prisma.matchEvent.create({
       data: {
-        ...data,
+        fixtureId: data.fixtureId,
+        eventType: data.eventType,
+        minute: data.minute,
+        playerId: data.playerId,
+        clubId: data.clubId || 0,
         description: data.description || '',
-        coordinates: data.coordinates ? JSON.stringify(data.coordinates) : undefined,
-        varReview: data.varReview ? JSON.stringify(data.varReview) : undefined
+        isHomeTeam: data.isHomeTeam ?? true
       },
       include: {
-        player: { select: { id: true, name: true, position: true } },
+        player: { select: { id: true, firstName: true, lastName: true, position: true } },
         club: { select: { id: true, name: true } }
       }
     });
@@ -30,23 +32,23 @@ export class LiveMatchEventService {
 
   // Get all events for a fixture
   static async getEventsByFixture(fixtureId: number) {
-    return await prisma.liveMatchEvent.findMany({
+    return await prisma.matchEvent.findMany({
       where: { fixtureId },
       orderBy: { minute: 'asc' },
       include: {
-        player: { select: { id: true, name: true, position: true } },
+        player: { select: { id: true, firstName: true, lastName: true, position: true } },
         club: { select: { id: true, name: true } }
       }
     });
   }
 
   // Get events by type for a fixture
-  static async getEventsByType(fixtureId: number, type: string) {
-    return await prisma.liveMatchEvent.findMany({
-      where: { fixtureId, type },
+  static async getEventsByType(fixtureId: number, eventType: string) {
+    return await prisma.matchEvent.findMany({
+      where: { fixtureId, eventType },
       orderBy: { minute: 'asc' },
       include: {
-        player: { select: { id: true, name: true, position: true } },
+        player: { select: { id: true, firstName: true, lastName: true, position: true } },
         club: { select: { id: true, name: true } }
       }
     });
@@ -58,10 +60,8 @@ export class LiveMatchEventService {
     originalEventId: number;
     decision: string;
     reason: string;
-    duration?: number;
-    refereeConsultation?: boolean;
   }) {
-    const originalEvent = await prisma.liveMatchEvent.findUnique({
+    const originalEvent = await prisma.matchEvent.findUnique({
       where: { id: data.originalEventId }
     });
 
@@ -69,22 +69,17 @@ export class LiveMatchEventService {
       throw new Error('Original event not found');
     }
 
-    return await prisma.liveMatchEvent.create({
+    return await prisma.matchEvent.create({
       data: {
         fixtureId: data.fixtureId,
-        type: 'VAR_REVIEW',
+        eventType: 'VAR_REVIEW',
         minute: originalEvent.minute,
         description: `VAR Review: ${data.decision} - ${data.reason}`,
-        varReview: JSON.stringify({
-          originalEventId: data.originalEventId,
-          decision: data.decision,
-          reason: data.reason,
-          duration: data.duration,
-          refereeConsultation: data.refereeConsultation
-        })
+        clubId: originalEvent.clubId,
+        isHomeTeam: originalEvent.isHomeTeam
       },
       include: {
-        player: { select: { id: true, name: true, position: true } },
+        player: { select: { id: true, firstName: true, lastName: true, position: true } },
         club: { select: { id: true, name: true } }
       }
     });
@@ -94,42 +89,17 @@ export class LiveMatchEventService {
   static async createWeatherEvent(data: {
     fixtureId: number;
     condition: string;
-    intensity: string;
     minute: number;
     description?: string;
   }) {
-    return await prisma.liveMatchEvent.create({
+    return await prisma.matchEvent.create({
       data: {
         fixtureId: data.fixtureId,
-        type: 'WEATHER',
+        eventType: 'WEATHER',
         minute: data.minute,
-        description: data.description || ''
-      }
-    });
-  }
-
-  // Create a referee decision
-  static async createRefereeDecision(data: {
-    fixtureId: number;
-    decision: string;
-    reason: string;
-    minute: number;
-    playerId?: number;
-    clubId?: number;
-    description?: string;
-  }) {
-    return await prisma.liveMatchEvent.create({
-      data: {
-        fixtureId: data.fixtureId,
-        type: 'REFEREE_DECISION',
-        minute: data.minute,
-        playerId: data.playerId,
-        clubId: data.clubId,
-        description: data.description || ''
-      },
-      include: {
-        player: { select: { id: true, name: true, position: true } },
-        club: { select: { id: true, name: true } }
+        description: data.description || `Weather: ${data.condition}`,
+        clubId: 0,
+        isHomeTeam: true
       }
     });
   }
@@ -137,31 +107,27 @@ export class LiveMatchEventService {
   // Get match statistics
   static async getMatchStatistics(fixtureId: number) {
     const events = await this.getEventsByFixture(fixtureId);
-    
+
     const stats = {
-      goals: events.filter((e: any) => e.type === 'GOAL').length,
-      yellowCards: events.filter((e: any) => e.type === 'YELLOW_CARD').length,
-      redCards: events.filter((e: any) => e.type === 'RED_CARD').length,
-      varReviews: events.filter((e: any) => e.type === 'VAR_REVIEW').length,
-      injuries: events.filter((e: any) => e.type === 'INJURY').length,
-      substitutions: events.filter((e: any) => e.type === 'SUBSTITUTION').length,
-      weatherEvents: events.filter((e: any) => e.type === 'WEATHER').length,
-      refereeDecisions: events.filter((e: any) => e.type === 'REFEREE_DECISION').length
+      goals: events.filter((e: any) => e.eventType === 'GOAL' || e.eventType === 'goal').length,
+      yellowCards: events.filter((e: any) => e.eventType === 'YELLOW_CARD' || e.eventType === 'yellow_card').length,
+      redCards: events.filter((e: any) => e.eventType === 'RED_CARD' || e.eventType === 'red_card').length,
+      injuries: events.filter((e: any) => e.eventType === 'INJURY' || e.eventType === 'injury').length,
+      substitutions: events.filter((e: any) => e.eventType === 'SUBSTITUTION' || e.eventType === 'substitution').length
     };
 
     return { statistics: stats, events };
   }
 
   // Generate realistic match events for a fixture
-  static async generateMatchEvents(fixtureId: number, homeClubId: number, awayClubId: number) {
+  static async generateMatchEvents(fixtureId: number, homeTeamId: number, awayTeamId: number) {
     const events: any[] = [];
-    
-    // Get fixture details
+
     const fixture = await prisma.fixture.findUnique({
       where: { id: fixtureId },
       include: {
-        homeClub: { include: { players: true } },
-        awayClub: { include: { players: true } }
+        homeTeam: { include: { players: true } },
+        awayTeam: { include: { players: true } }
       }
     });
 
@@ -170,83 +136,63 @@ export class LiveMatchEventService {
     }
 
     // Generate goals
-    const homeGoals = fixture.homeGoals || 0;
-    const awayGoals = fixture.awayGoals || 0;
-    
-    for (let i = 0; i < homeGoals; i++) {
+    const homeScore = fixture.homeScore || 0;
+    const awayScore = fixture.awayScore || 0;
+
+    for (let i = 0; i < homeScore; i++) {
       const minute = Math.floor(Math.random() * 90) + 1;
-      const scorer = fixture.homeClub.players[Math.floor(Math.random() * fixture.homeClub.players.length)];
-      
-      events.push({
-        fixtureId,
-        type: 'GOAL',
-        minute,
-        playerId: scorer.id,
-        clubId: homeClubId,
-        description: `Goal scored by ${scorer.name}`
-      });
+      const players = fixture.homeTeam.players;
+      if (players.length > 0) {
+        const scorer = players[Math.floor(Math.random() * players.length)];
+        events.push({
+          fixtureId,
+          eventType: 'goal',
+          minute,
+          playerId: scorer.id,
+          clubId: homeTeamId,
+          description: `Goal scored by ${scorer.firstName} ${scorer.lastName}`,
+          isHomeTeam: true
+        });
+      }
     }
 
-    for (let i = 0; i < awayGoals; i++) {
+    for (let i = 0; i < awayScore; i++) {
       const minute = Math.floor(Math.random() * 90) + 1;
-      const scorer = fixture.awayClub.players[Math.floor(Math.random() * fixture.awayClub.players.length)];
-      
-      events.push({
-        fixtureId,
-        type: 'GOAL',
-        minute,
-        playerId: scorer.id,
-        clubId: awayClubId,
-        description: `Goal scored by ${scorer.name}`
-      });
+      const players = fixture.awayTeam.players;
+      if (players.length > 0) {
+        const scorer = players[Math.floor(Math.random() * players.length)];
+        events.push({
+          fixtureId,
+          eventType: 'goal',
+          minute,
+          playerId: scorer.id,
+          clubId: awayTeamId,
+          description: `Goal scored by ${scorer.firstName} ${scorer.lastName}`,
+          isHomeTeam: false
+        });
+      }
     }
 
     // Generate cards
-    const totalCards = Math.floor(Math.random() * 6) + 2; // 2-7 cards
+    const totalCards = Math.floor(Math.random() * 6) + 2;
     for (let i = 0; i < totalCards; i++) {
       const minute = Math.floor(Math.random() * 90) + 1;
-      const isYellow = Math.random() > 0.2; // 80% yellow, 20% red
-      const club = Math.random() > 0.5 ? fixture.homeClub : fixture.awayClub;
-      const player = club.players[Math.floor(Math.random() * club.players.length)];
-      
-      events.push({
-        fixtureId,
-        type: isYellow ? 'YELLOW_CARD' : 'RED_CARD',
-        minute,
-        playerId: player.id,
-        clubId: club.id,
-        description: `${isYellow ? 'Yellow' : 'Red'} card for ${player.name}`
-      });
-    }
-
-    // Generate substitutions
-    const substitutions = Math.floor(Math.random() * 6) + 3; // 3-8 substitutions
-    for (let i = 0; i < substitutions; i++) {
-      const minute = Math.floor(Math.random() * 90) + 1;
-      const club = Math.random() > 0.5 ? fixture.homeClub : fixture.awayClub;
-      const player = club.players[Math.floor(Math.random() * club.players.length)];
-      
-      events.push({
-        fixtureId,
-        type: 'SUBSTITUTION',
-        minute,
-        playerId: player.id,
-        clubId: club.id,
-        description: `Substitution: ${player.name}`
-      });
-    }
-
-    // Generate weather events (rare)
-    if (Math.random() > 0.8) {
-      const weatherConditions = ['RAIN', 'SNOW', 'STRONG_WIND', 'HEAT'];
-      const condition = weatherConditions[Math.floor(Math.random() * weatherConditions.length)];
-      
-      events.push({
-        fixtureId,
-        type: 'WEATHER',
-        minute: Math.floor(Math.random() * 90) + 1,
-        description: `Weather condition: ${condition}`
-      });
+      const isYellow = Math.random() > 0.2;
+      const isHome = Math.random() > 0.5;
+      const club = isHome ? fixture.homeTeam : fixture.awayTeam;
+      const players = club.players;
+      if (players.length > 0) {
+        const player = players[Math.floor(Math.random() * players.length)];
+        events.push({
+          fixtureId,
+          eventType: isYellow ? 'yellow_card' : 'red_card',
+          minute,
+          playerId: player.id,
+          clubId: club.id,
+          description: `${isYellow ? 'Yellow' : 'Red'} card for ${player.firstName} ${player.lastName}`,
+          isHomeTeam: isHome
+        });
+      }
     }
 
     // Save all events
@@ -259,20 +205,11 @@ export class LiveMatchEventService {
 
   // Update an existing event
   static async updateEvent(eventId: number, data: any) {
-    const updateData = { ...data };
-    
-    if (updateData.coordinates && typeof updateData.coordinates === 'object') {
-      updateData.coordinates = JSON.stringify(updateData.coordinates);
-    }
-    if (updateData.varReview && typeof updateData.varReview === 'object') {
-      updateData.varReview = JSON.stringify(updateData.varReview);
-    }
-
-    return await prisma.liveMatchEvent.update({
+    return await prisma.matchEvent.update({
       where: { id: eventId },
-      data: updateData,
+      data,
       include: {
-        player: { select: { id: true, name: true, position: true } },
+        player: { select: { id: true, firstName: true, lastName: true, position: true } },
         club: { select: { id: true, name: true } }
       }
     });
@@ -280,10 +217,10 @@ export class LiveMatchEventService {
 
   // Delete an event
   static async deleteEvent(eventId: number) {
-    return await prisma.liveMatchEvent.delete({
+    return await prisma.matchEvent.delete({
       where: { id: eventId }
     });
   }
 }
 
-export default LiveMatchEventService; 
+export default LiveMatchEventService;

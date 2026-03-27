@@ -6,39 +6,42 @@ const router = express.Router();
 // Create a new transfer offer
 router.post('/', async (req, res) => {
   try {
-    const { playerId, fromClubId, toClubId, fee, clauses, deadline } = req.body;
-    if (!playerId || !fromClubId || !toClubId || !fee || !deadline) {
-      return res.status(400).json({ error: 'Missing required fields' });
+    const { playerId, fromClubId, toClubId, amount, deadline } = req.body;
+    if (!playerId || !fromClubId || !toClubId || !amount || !deadline) {
+      res.status(400).json({ error: 'Missing required fields' });
+      return;
     }
-    // Validate player and clubs
+
     const player = await prisma.player.findUnique({ where: { id: playerId } });
-    if (!player) return res.status(404).json({ error: 'Player not found' });
+    if (!player) {
+      res.status(404).json({ error: 'Player not found' });
+      return;
+    }
+
     const fromClub = await prisma.club.findUnique({ where: { id: fromClubId } });
     const toClub = await prisma.club.findUnique({ where: { id: toClubId } });
-    if (!fromClub || !toClub) return res.status(404).json({ error: 'Club not found' });
-    if (player.clubId !== fromClubId) return res.status(400).json({ error: 'Player does not belong to fromClub' });
-    // Determine initiator from session/auth (future: integrate real auth)
-    let initiator = 'user';
-    // Use type assertions to avoid TypeScript errors (temporary workaround)
-    const reqAny = req as any;
-    if (reqAny.user && reqAny.user.role) {
-      initiator = reqAny.user.role;
-    } else if (reqAny.session && reqAny.session.user && reqAny.session.user.role) {
-      initiator = reqAny.session.user.role;
+    if (!fromClub || !toClub) {
+      res.status(404).json({ error: 'Club not found' });
+      return;
     }
-    // Create offer
+
+    if (player.currentClubId !== fromClubId) {
+      res.status(400).json({ error: 'Player does not belong to fromClub' });
+      return;
+    }
+
+    // Create offer with correct schema fields
     const offer = await prisma.transferOffer.create({
       data: {
         playerId,
         fromClubId,
         toClubId,
-        initiator, // Now set from session/user if available
-        status: 'pending',
-        fee,
-        clauses: clauses || {},
+        initiator: 'user',
+        status: 'PENDING',
+        amount,
         deadline: new Date(deadline),
-        history: [],
-      },
+        history: []
+      }
     });
     res.status(201).json(offer);
   } catch (err) {
@@ -51,43 +54,54 @@ router.post('/', async (req, res) => {
 router.post('/:id/respond', async (req, res) => {
   try {
     const offerId = parseInt(req.params.id);
-    const { action, counterFee, counterClauses } = req.body;
+    const { action, counterAmount } = req.body;
     if (!['accept', 'reject', 'counter'].includes(action)) {
-      return res.status(400).json({ error: 'Invalid action' });
+      res.status(400).json({ error: 'Invalid action' });
+      return;
     }
+
     const offer = await prisma.transferOffer.findUnique({ where: { id: offerId } });
-    if (!offer) return res.status(404).json({ error: 'Offer not found' });
-    if (offer.status !== 'pending' && offer.status !== 'countered') {
-      return res.status(400).json({ error: 'Offer is not pending or countered' });
+    if (!offer) {
+      res.status(404).json({ error: 'Offer not found' });
+      return;
     }
+
+    if (offer.status !== 'PENDING' && offer.status !== 'COUNTERED') {
+      res.status(400).json({ error: 'Offer is not pending or countered' });
+      return;
+    }
+
     let updatedOffer;
-    let newHistory = Array.isArray(offer.history) ? offer.history : [];
+    const newHistory = Array.isArray(offer.history) ? offer.history : [];
+
     if (action === 'accept') {
       updatedOffer = await prisma.transferOffer.update({
         where: { id: offerId },
         data: {
-          status: 'accepted',
-          history: [...newHistory, { action: 'accept', date: new Date() }],
-        },
+          status: 'ACCEPTED',
+          history: [...newHistory, { action: 'accept', date: new Date() }]
+        }
       });
     } else if (action === 'reject') {
       updatedOffer = await prisma.transferOffer.update({
         where: { id: offerId },
         data: {
-          status: 'rejected',
-          history: [...newHistory, { action: 'reject', date: new Date() }],
-        },
+          status: 'REJECTED',
+          history: [...newHistory, { action: 'reject', date: new Date() }]
+        }
       });
     } else if (action === 'counter') {
-      if (!counterFee) return res.status(400).json({ error: 'Missing counterFee for counter action' });
+      if (!counterAmount) {
+        res.status(400).json({ error: 'Missing counterAmount for counter action' });
+        return;
+      }
       updatedOffer = await prisma.transferOffer.update({
         where: { id: offerId },
         data: {
-          status: 'countered',
-          fee: counterFee,
-          clauses: counterClauses || offer.clauses,
-          history: [...newHistory, { action: 'counter', date: new Date(), counterFee, counterClauses }],
-        },
+          status: 'COUNTERED',
+          counteredAmount: counterAmount,
+          history: [...newHistory, { action: 'counter', date: new Date(), counterAmount }]
+        }
       });
     }
     res.json(updatedOffer);
@@ -102,14 +116,19 @@ router.get('/', async (req, res) => {
   try {
     const clubId = parseInt(req.query.clubId as string);
     const status = req.query.status as string | undefined;
-    if (!clubId) return res.status(400).json({ error: 'Missing clubId query param' });
+    if (!clubId) {
+      res.status(400).json({ error: 'Missing clubId query param' });
+      return;
+    }
+
     const where: any = {
       OR: [
         { fromClubId: clubId },
-        { toClubId: clubId },
-      ],
+        { toClubId: clubId }
+      ]
     };
     if (status) where.status = status;
+
     const offers = await prisma.transferOffer.findMany({ where });
     res.json(offers);
   } catch (err) {
@@ -123,42 +142,51 @@ router.post('/free-agent', async (req, res) => {
   try {
     const { playerId, toClubId, wage, contractExpiry } = req.body;
     if (!playerId || !toClubId || !wage || !contractExpiry) {
-      return res.status(400).json({ error: 'Missing required fields' });
+      res.status(400).json({ error: 'Missing required fields' });
+      return;
     }
-    // Validate player
+
     const player = await prisma.player.findUnique({ where: { id: playerId } });
-    if (!player) return res.status(404).json({ error: 'Player not found' });
-    if (player.clubId !== null) {
-      return res.status(400).json({ error: 'Player is not a free agent' });
+    if (!player) {
+      res.status(404).json({ error: 'Player not found' });
+      return;
     }
-    // Validate club
+
+    if (player.currentClubId !== null) {
+      res.status(400).json({ error: 'Player is not a free agent' });
+      return;
+    }
+
     const club = await prisma.club.findUnique({ where: { id: toClubId } });
-    if (!club) return res.status(404).json({ error: 'Club not found' });
-    // Find the Free Agent club before creating the offer
+    if (!club) {
+      res.status(404).json({ error: 'Club not found' });
+      return;
+    }
+
     const freeAgentClub = await prisma.club.findFirst({ where: { name: 'Free Agent' } });
-    if (!freeAgentClub) return res.status(500).json({ error: 'Free Agent club not found' });
-    // Update player
+
+    // Update player with correct field names
     const updatedPlayer = await prisma.player.update({
       where: { id: playerId },
       data: {
-        clubId: toClubId,
-        wage,
-        contractExpiry: new Date(contractExpiry),
-      },
+        currentClubId: toClubId,
+        weeklyWage: wage,
+        contractEnd: new Date(contractExpiry)
+      }
     });
+
     // Log as finalized TransferOffer
     await prisma.transferOffer.create({
       data: {
         playerId,
-        fromClubId: freeAgentClub.id, // Use Free Agent club's ID instead of null
+        fromClubId: freeAgentClub?.id || toClubId,
         toClubId,
         initiator: 'user',
-        status: 'finalized',
-        fee: 0,
-        clauses: {},
+        status: 'ACCEPTED',
+        amount: 0,
         deadline: new Date(contractExpiry),
-        history: [{ action: 'signed', date: new Date(), wage }],
-      },
+        history: [{ action: 'signed', date: new Date(), wage }]
+      }
     });
     res.json({ player: updatedPlayer });
   } catch (err) {
@@ -167,4 +195,4 @@ router.post('/free-agent', async (req, res) => {
   }
 });
 
-export default router; 
+export default router;

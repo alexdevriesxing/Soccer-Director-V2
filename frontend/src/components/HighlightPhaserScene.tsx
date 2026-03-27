@@ -1,11 +1,10 @@
-import React, { useEffect, useRef, useState, useMemo, useCallback } from 'react';
+import React, { useEffect, useRef, useState, useMemo } from 'react';
 import * as Phaser from 'phaser';
 import LoadingSpinner from './LoadingSpinner';
 import ErrorMessage from './ErrorMessage';
 import { 
   HighlightEvent, 
   Team, 
-  Player, 
   PITCH_WIDTH, 
   PITCH_HEIGHT, 
   TEAM_COLORS, 

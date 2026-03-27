@@ -6,16 +6,15 @@ export async function seedVierdeDivisie(prisma: PrismaClient) {
   const vierdeDivisie = await prisma.league.create({
     data: {
       name: 'Vierde Divisie',
-      tier: 'VIERDE_DIVISIE',
-      season: '2024-2025',
+      tier: 5, level: 'Vierde Divisie',
     },
   });
 
   // Vierde Divisie clubs (add your actual club data here)
   const vierdeDivisieClubs = [
     // Example clubs, replace with actual data as needed
-    { name: 'Club A', homeCity: 'City A', boardExpectation: 'Mid-table', morale: 70, form: 'WDLWL', regionTag: 'Noord' },
-    { name: 'Club B', homeCity: 'City B', boardExpectation: 'Avoid relegation', morale: 65, form: 'LLDWL', regionTag: 'Oost' }
+    { name: 'Club A', city: 'City A', boardExpectation: 'Mid-table', morale: 70, form: 'WDLWL',  },
+    { name: 'Club B', city: 'City B', boardExpectation: 'Avoid relegation', morale: 65, form: 'LLDWL',  }
   ];
 
   for (const clubData of vierdeDivisieClubs) {

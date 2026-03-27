@@ -1,6 +1,5 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useTranslation } from 'react-i18next';
 import LoadingSpinner from '../components/LoadingSpinner';
 import ErrorMessage from '../components/ErrorMessage';
 import { useResolvedClubId } from '../hooks/useResolvedClubId';
@@ -34,7 +33,6 @@ interface O21Team {
 
 const O21ManagementPage: React.FC = () => {
   const navigate = useNavigate();
-  const { t } = useTranslation();
   const { clubId, loading: clubIdLoading } = useResolvedClubId();
   const [players, setPlayers] = useState<O21Player[]>([]);
   const [teamInfo, setTeamInfo] = useState<O21Team | null>(null);
@@ -48,16 +46,8 @@ const O21ManagementPage: React.FC = () => {
   const [releaseModal, setReleaseModal] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
 
-  useEffect(() => {
+  const fetchO21Data = useCallback(async () => {
     if (!clubId) return;
-    fetchO21Data();
-  }, [clubId]);
-
-  if (clubIdLoading) return <LoadingSpinner />;
-  if (!clubId) return <ErrorMessage message="Club not found." />;
-
-
-  const fetchO21Data = async () => {
     setLoading(true);
     setError(null);
     try {
@@ -78,7 +68,15 @@ const O21ManagementPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [clubId]);
+
+  useEffect(() => {
+    if (!clubId) return;
+    fetchO21Data();
+  }, [clubId, fetchO21Data]);
+
+  if (clubIdLoading) return <LoadingSpinner />;
+  if (!clubId) return <ErrorMessage message="Club not found." />;
 
   const filteredAndSortedPlayers = players
     .filter(player => {

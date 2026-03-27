@@ -9,8 +9,8 @@ import fixturesRouter from '../routes/fixtures';
 import transferMarketRouter from '../routes/transferMarket';
 import jongTeamRouter from '../routes/jongTeam';
 import financeRouter from '../routes/finance';
-import staffRouter from '../routes/staff';
-import internationalRouter from '../routes/international';
+import staffRouter from '../routes/staffManagement';
+import internationalRouter from '../routes/internationalTeams';
 import newsRouter from '../routes/news';
 
 const router = Router();

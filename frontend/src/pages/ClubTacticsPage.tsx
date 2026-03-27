@@ -1,7 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useManagerProfile } from '../context/ManagerProfileContext';
-import { getClubs } from '../api/footballApi';
 import { useResolvedClubId } from '../hooks/useResolvedClubId';
 import LoadingSpinner from '../components/LoadingSpinner';
 import ErrorMessage from '../components/ErrorMessage';
@@ -27,15 +25,12 @@ const STRATEGIES = ['Attacking', 'Balanced', 'Defensive', 'Counter', 'Possession
 const SPECIALIST_TYPES = ['Free Kick', 'Penalty', 'Corner', 'Throw In'];
 
 const ClubTacticsPage: React.FC = () => {
-  const navigate = useNavigate();
   const { profile } = useManagerProfile();
-  if (!profile) return null;
   const { clubId, loading: clubIdLoading } = useResolvedClubId();
-  if (clubIdLoading) return <LoadingSpinner />;
-  if (!clubId) return <ErrorMessage message="Club not found." />;
+
+  // All useState hooks must be called before any early returns
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [tactics, setTactics] = useState<Tactics | null>(null);
   const [tacticsEdit, setTacticsEdit] = useState<Tactics | null>(null);
   const [specialists, setSpecialists] = useState<Specialist[]>([]);
   const [players, setPlayers] = useState<{ id: number; name: string }[]>([]);
@@ -66,7 +61,6 @@ const ClubTacticsPage: React.FC = () => {
       fetch(`/api/game/club/${clubId}/squad`).then(r => r.json()),
     ])
       .then(([tacticsData, specialistsData, squadData]) => {
-        setTactics(tacticsData);
         setTacticsEdit(tacticsData);
         setSpecialists(specialistsData.specialists || []);
         setPlayers((squadData.players || []).map((p: any) => ({ id: p.id, name: p.name })));
@@ -77,7 +71,7 @@ const ClubTacticsPage: React.FC = () => {
 
   // Save tactics
   const handleSaveTactics = async () => {
-    if (!tacticsEdit) return;
+    if (!tacticsEdit || !clubId) return;
     setSavingTactics(true);
     setError(null);
     try {
@@ -87,7 +81,6 @@ const ClubTacticsPage: React.FC = () => {
         body: JSON.stringify(tacticsEdit),
       });
       if (!res.ok) throw new Error('Failed to save tactics');
-      setTactics({ ...tacticsEdit });
       setToast('Tactics updated!');
     } catch (e: any) {
       setError(e.message || 'Failed to save tactics');
@@ -99,7 +92,7 @@ const ClubTacticsPage: React.FC = () => {
 
   // Add specialist
   const handleAddSpecialist = async () => {
-    if (!addPlayerId || !addType || addSkill == null) {
+    if (!addPlayerId || !addType || addSkill == null || !clubId) {
       setAddError('All fields required');
       return;
     }
@@ -130,7 +123,7 @@ const ClubTacticsPage: React.FC = () => {
 
   // Edit specialist
   const handleEditSpecialist = async () => {
-    if (editId == null || editSkill == null) return;
+    if (editId == null || editSkill == null || !clubId) return;
     setEditLoading(true);
     setEditError(null);
     try {
@@ -158,6 +151,7 @@ const ClubTacticsPage: React.FC = () => {
 
   // Delete specialist
   const handleDeleteSpecialist = async (id: number) => {
+    if (!clubId) return;
     setDeleteLoading(id);
     setError(null);
     try {
@@ -178,6 +172,10 @@ const ClubTacticsPage: React.FC = () => {
     }
   };
 
+  // Early returns after all hooks
+  if (!profile) return null;
+  if (clubIdLoading) return <LoadingSpinner />;
+  if (!clubId) return <ErrorMessage message="Club not found." />;
   if (loading) return <div className="min-h-screen flex items-center justify-center text-xl">Loading tactics...</div>;
   if (error) return <div className="min-h-screen flex items-center justify-center text-red-500">{error}</div>;
 
@@ -296,4 +294,4 @@ const ClubTacticsPage: React.FC = () => {
   );
 };
 
-export default ClubTacticsPage; 
+export default ClubTacticsPage;

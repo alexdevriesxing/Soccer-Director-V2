@@ -1,7 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import { generatePlayersForClub } from './generatePlayers';
 
-const prisma = new PrismaClient();
 
 // Example: Real player lists for some clubs (expand as needed)
 const realPlayers: Record<string, string[]> = {

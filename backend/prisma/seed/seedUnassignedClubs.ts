@@ -1,5 +1,4 @@
 import { PrismaClient } from '@prisma/client';
-const prisma = new PrismaClient();
 
 // List of unassigned clubs (including FC Amboina)
 const unassignedClubNames = [
@@ -29,15 +28,12 @@ const unassignedClubNames = [
 
 export async function seedUnassignedClubs(prisma: PrismaClient) {
   // Create or find the 'Unassigned Clubs' league
-  let league = await prisma.league.findFirst({ where: { tier: 'unassigned' } });
+  let league = await prisma.league.findFirst({ where: { tier: 100 } });
   if (!league) {
     league = await prisma.league.create({
       data: {
         name: 'Unassigned Clubs',
-        tier: 'unassigned',
-        region: 'none',
-        division: 'none',
-        season: '2024/25',
+        tier: 100, level: 'Unassigned',
       },
     });
   }
@@ -49,19 +45,13 @@ export async function seedUnassignedClubs(prisma: PrismaClient) {
         data: {
           name,
           leagueId: league.id,
-          homeCity: null,
+          city: null,
           boardExpectation: 'Survive',
           morale: 30,
           form: '',
-          regionTag: 'unknown',
-          homeKitShirt: '#cccccc',
-          homeKitShorts: '#cccccc',
-          homeKitSocks: '#cccccc',
-          awayKitShirt: '#eeeeee',
-          awayKitShorts: '#eeeeee',
-          awayKitSocks: '#eeeeee',
+          primaryColor: '#cccccc',
+          secondaryColor: '#eeeeee',
           isJongTeam: false,
-          eligibleForPromotion: true,
         },
       });
     }
@@ -74,19 +64,13 @@ export async function seedUnassignedClubs(prisma: PrismaClient) {
       data: {
         name: freeAgentClubName,
         leagueId: league.id,
-        homeCity: null,
+        city: null,
         boardExpectation: 'None',
         morale: 0,
         form: '',
-        regionTag: 'none',
-        homeKitShirt: '#888888',
-        homeKitShorts: '#888888',
-        homeKitSocks: '#888888',
-        awayKitShirt: '#888888',
-        awayKitShorts: '#888888',
-        awayKitSocks: '#888888',
+        primaryColor: '#888888',
+        secondaryColor: '#888888',
         isJongTeam: false,
-        eligibleForPromotion: false,
       },
     });
     console.log('✅ Free Agent club seeded.');

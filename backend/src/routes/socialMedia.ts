@@ -1,116 +1,87 @@
-import express, { Request } from 'express';
-import { t } from '../utils/i18n';
-import { PrismaClient } from '@prisma/client';
+import express from 'express';
 
-const prisma = new PrismaClient();
 const router = express.Router();
 
-// --- SOCIAL MEDIA ---
+// In-memory storage for social media (model doesn't exist)
+interface SocialMediaPost {
+  id: number;
+  clubId: number;
+  content: string;
+  likes: number;
+  comments: number;
+  createdAt: Date;
+}
 
-// GET /api/social-media
-router.get('/', async (req: Request, res) => {
+const postsStore: Map<number, SocialMediaPost> = new Map();
+let nextPostId = 1;
+
+// Get posts for a club
+router.get('/:clubId/posts', async (req, res) => {
   try {
-    const posts = await prisma.socialMedia.findMany({
-      include: {
-        club: true,
-        player: true
-      },
-      orderBy: { date: 'desc' }
-    });
-    res.json({ posts });
+    const clubId = parseInt(req.params.clubId, 10);
+    const posts = Array.from(postsStore.values())
+      .filter(p => p.clubId === clubId)
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+    res.json(posts);
   } catch (error) {
-    res.status(500).json({ error: t('error.failed_to_fetch_social_media', (req as any).language || 'en') });
+    res.status(500).json({ error: 'Failed to fetch posts' });
   }
 });
 
-// GET /api/social-media/:postId
-router.get('/:postId', async (req: Request, res) => {
+// Create a post
+router.post('/:clubId/posts', async (req, res) => {
   try {
-    const postId = parseInt(req.params.postId, 10);
-    const post = await prisma.socialMedia.findUnique({
-      where: { id: postId },
-      include: {
-        club: true,
-        player: true
-      }
-    });
-    
-    if (!post) {
-      return res.status(404).json({ error: t('error.social_media_post_not_found', (req as any).language || 'en') });
+    const clubId = parseInt(req.params.clubId, 10);
+    const { content } = req.body;
+
+    if (!content) {
+      res.status(400).json({ error: 'Content is required' });
+      return;
     }
-    
-    res.json({ post });
-  } catch (error) {
-    res.status(500).json({ error: t('error.failed_to_fetch_social_media_post', (req as any).language || 'en') });
-  }
-});
 
-// POST /api/social-media
-router.post('/', async (req: Request, res) => {
-  try {
-    const {
+    const post: SocialMediaPost = {
+      id: nextPostId++,
       clubId,
-      playerId,
-      platform,
       content,
-      sentiment
-    } = req.body;
+      likes: 0,
+      comments: 0,
+      createdAt: new Date()
+    };
+    postsStore.set(post.id, post);
+    res.status(201).json(post);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to create post' });
+  }
+});
 
-    if (!content || !platform) {
-      return res.status(400).json({ error: t('validation.missing_required_fields', (req as any).language || 'en') });
+// Like a post
+router.post('/posts/:postId/like', async (req, res) => {
+  try {
+    const postId = parseInt(req.params.postId, 10);
+    const post = postsStore.get(postId);
+
+    if (!post) {
+      res.status(404).json({ error: 'Post not found' });
+      return;
     }
 
-    const post = await prisma.socialMedia.create({
-      data: {
-        clubId,
-        playerId,
-        platform,
-        content,
-        sentiment: sentiment || 'Neutral',
-        engagement: 0
-      },
-      include: {
-        club: true,
-        player: true
-      }
-    });
-
-    res.status(201).json({ post });
+    post.likes++;
+    postsStore.set(postId, post);
+    res.json(post);
   } catch (error) {
-    res.status(500).json({ error: t('error.failed_to_create_social_media_post', (req as any).language || 'en') });
+    res.status(500).json({ error: 'Failed to like post' });
   }
 });
 
-// PUT /api/social-media/:postId
-router.put('/:postId', async (req: Request, res) => {
+// Delete a post
+router.delete('/posts/:postId', async (req, res) => {
   try {
     const postId = parseInt(req.params.postId, 10);
-    const updateData = req.body;
-    
-    const post = await prisma.socialMedia.update({
-      where: { id: postId },
-      data: updateData,
-      include: {
-        club: true,
-        player: true
-      }
-    });
-    
-    res.json({ post });
+    postsStore.delete(postId);
+    res.json({ success: true });
   } catch (error) {
-    res.status(500).json({ error: t('error.failed_to_update_social_media_post', (req as any).language || 'en') });
+    res.status(500).json({ error: 'Failed to delete post' });
   }
 });
 
-// DELETE /api/social-media/:postId
-router.delete('/:postId', async (req: Request, res) => {
-  try {
-    const postId = parseInt(req.params.postId, 10);
-    await prisma.socialMedia.delete({ where: { id: postId } });
-    res.status(204).send();
-  } catch (error) {
-    res.status(500).json({ error: t('error.failed_to_delete_social_media_post', (req as any).language || 'en') });
-  }
-});
-
-export default router; 
+export default router;

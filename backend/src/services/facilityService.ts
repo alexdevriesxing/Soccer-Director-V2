@@ -1,73 +1,121 @@
 import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 
-export async function getFacilitiesForClub(clubId: number) {
-  // Fetch all facilities for the club
-  const facilities = await prisma.facility.findMany({
-    where: { clubId },
-    select: {
-      id: true,
-      name: true,
-      type: true,
-      level: true,
-      capacity: true,
-      maintenanceCost: true,
-      upgradeCost: true,
-      effects: true,
-    },
-  });
-  return facilities;
+// Facility types and their upgrade properties
+const FACILITY_TYPES = ['stadium', 'trainingGround', 'youthAcademy', 'youthFacilities', 'scoutingNetwork'] as const;
+
+interface FacilityInfo {
+  id: string;
+  name: string;
+  type: string;
+  level: number;
+  maxLevel: number;
+  upgradeCost: number;
+  effects: string;
 }
 
-export async function upgradeFacility(facilityId: number) {
-  // Get the facility and club
-  const facility = await prisma.facility.findUnique({ where: { id: facilityId } });
-  if (!facility) throw new Error('Facility not found');
-  if (facility.level >= 5) throw new Error('Facility is already at max level');
-  const club = await prisma.club.findUnique({ where: { id: facility.clubId }, include: { finances: { orderBy: { week: 'desc' }, take: 1 } } });
-  if (!club) throw new Error('Club not found');
-  const upgradeCost = facility.upgradeCost;
-  const finances = club.finances[0];
-  if (!finances || finances.balance < upgradeCost) throw new Error('Insufficient funds');
-  // Deduct cost from club finances
-  await prisma.clubFinances.update({ where: { id: finances.id }, data: { balance: { decrement: upgradeCost } } });
+function getFacilityInfo(type: string, level: number): Omit<FacilityInfo, 'id'> {
+  const facilityNames: Record<string, string> = {
+    stadiumLevel: 'Stadium',
+    trainingGround: 'Training Ground',
+    youthAcademy: 'Youth Academy',
+    youthFacilities: 'Youth Facilities',
+    scoutingNetwork: 'Scouting Network'
+  };
+
+  const baseUpgradeCost = 500000;
+  return {
+    name: facilityNames[type] || type,
+    type,
+    level,
+    maxLevel: 5,
+    upgradeCost: baseUpgradeCost * level * (level + 1),
+    effects: `Level ${level} - Improves ${type} effectiveness by ${level * 10}%`
+  };
+}
+
+export async function getFacilitiesForClub(clubId: number): Promise<FacilityInfo[]> {
+  // Fetch ClubFacility for the club
+  const clubFacility = await prisma.clubFacility.findUnique({
+    where: { clubId }
+  });
+
+  if (!clubFacility) {
+    // Return default facilities
+    return FACILITY_TYPES.map((type, _i) => ({
+      id: `${clubId}-${type}`,
+      ...getFacilityInfo(type, 1)
+    }));
+  }
+
+  // Map ClubFacility fields to facility array
+  return [
+    { id: `${clubId}-stadium`, ...getFacilityInfo('stadiumLevel', clubFacility.stadiumLevel) },
+    { id: `${clubId}-training`, ...getFacilityInfo('trainingGround', clubFacility.trainingGround) },
+    { id: `${clubId}-academy`, ...getFacilityInfo('youthAcademy', clubFacility.youthAcademy) },
+    { id: `${clubId}-youth`, ...getFacilityInfo('youthFacilities', clubFacility.youthFacilities) },
+    { id: `${clubId}-scouting`, ...getFacilityInfo('scoutingNetwork', clubFacility.scoutingNetwork) }
+  ];
+}
+
+export async function upgradeFacility(facilityId: string) {
+  // Parse clubId and facility type from facilityId (format: "clubId-type")
+  const [clubIdStr, facilityType] = facilityId.split('-');
+  const clubId = parseInt(clubIdStr, 10);
+
+  if (!clubId || !facilityType) throw new Error('Invalid facility ID');
+
+  // Get or create club facility
+  let clubFacility = await prisma.clubFacility.findUnique({ where: { clubId } });
+
+  if (!clubFacility) {
+    clubFacility = await prisma.clubFacility.create({
+      data: { clubId }
+    });
+  }
+
+  // Map facility type to field name
+  const fieldMap: Record<string, keyof typeof clubFacility> = {
+    'stadium': 'stadiumLevel',
+    'training': 'trainingGround',
+    'academy': 'youthAcademy',
+    'youth': 'youthFacilities',
+    'scouting': 'scoutingNetwork'
+  };
+
+  const field = fieldMap[facilityType];
+  if (!field) throw new Error('Unknown facility type');
+
+  const currentLevel = clubFacility[field] as number;
+  if (currentLevel >= 5) throw new Error('Facility is already at max level');
+
   // Upgrade the facility
-  const upgraded = await prisma.facility.update({ where: { id: facilityId }, data: { level: { increment: 1 } } });
-  // Optionally: recalculate effects, costs, etc.
-  return upgraded;
+  const updateData: Record<string, number> = {};
+  updateData[field] = currentLevel + 1;
+
+  const upgraded = await prisma.clubFacility.update({
+    where: { clubId },
+    data: updateData
+  });
+
+  return {
+    facilityId,
+    type: facilityType,
+    newLevel: (upgraded as any)[field],
+    message: `${facilityType} upgraded to level ${(upgraded as any)[field]}`
+  };
 }
 
 export async function getUpgradeProgress(clubId: number) {
-  // Fetch all facilities for the club
-  const facilities = await prisma.facility.findMany({ where: { clubId } });
-  // Fetch all upgrade requests for the club
-  const upgrades = await prisma.facilityUpgradeRequest.findMany({
-    where: { facility: { clubId } },
-    orderBy: { requestedAt: 'desc' }
-  });
-  // Map upgrades by facilityId
-  const upgradesByFacility: Record<number, any> = {};
-  for (const upgrade of upgrades) {
-    upgradesByFacility[upgrade.facilityId] = upgrade;
-  }
-  // Build progress info for each facility
-  const progress = facilities.map((facility: any) => {
-    const upgrade = upgradesByFacility[facility.id];
-    let status = 'idle';
-    let estimatedCompletion = null;
-    if (upgrade && upgrade.status === 'in_progress') {
-      status = 'in_progress';
-      // Assume upgrades take 7 days from requestedAt
-      estimatedCompletion = new Date(new Date(upgrade.requestedAt).getTime() + 7 * 24 * 60 * 60 * 1000);
-    }
-    return {
-      id: facility.id,
-      name: facility.name,
-      type: facility.type,
-      level: facility.level,
-      status,
-      estimatedCompletion
-    };
-  });
-  return progress;
-} 
+  const facilities = await getFacilitiesForClub(clubId);
+
+  // Upgrade progress feature - return current state (no pending upgrades in this stub)
+  return facilities.map(facility => ({
+    id: facility.id,
+    name: facility.name,
+    type: facility.type,
+    level: facility.level,
+    status: 'idle' as const,
+    estimatedCompletion: null
+  }));
+}

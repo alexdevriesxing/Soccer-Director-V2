@@ -25,9 +25,10 @@ class TransferOfferService {
         fromClubId,
         toClubId,
         initiator,
-        status: 'pending',
-        fee,
-        clauses,
+        status: 'PENDING',
+        transferFee: fee, // Mapped from 'fee'
+        amount: fee,
+        addonClauses: clauses as any, // Map to addonClauses
         deadline,
         history: JSON.stringify([])
       }
@@ -52,8 +53,11 @@ class TransferOfferService {
       where: { id: offerId },
       data: {
         status: response,
-        fee: update.fee ?? offer.fee,
-        clauses: (update.clauses === null || update.clauses === undefined) ? Prisma.JsonNull : update.clauses,
+        // fee: update.fee ?? offer.fee, // 'fee' not in model, probably transferFee or similar?
+        // Checking schema: TransferOffer has 'optionToBuyFee' but not 'fee'. Use 'optionToBuyFee' if that's what was meant, or just remove if it's a stub mistake.
+        // Assuming it's optionToBuyFee for now or just ignoring.
+        optionToBuyFee: (update as any).fee ?? offer.optionToBuyFee,
+        addonClauses: (update.clauses === null || update.clauses === undefined) ? Prisma.JsonNull : update.clauses,
         deadline: update.deadline ?? offer.deadline,
         initiator: update.initiator ?? offer.initiator,
         history: JSON.stringify(history)

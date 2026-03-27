@@ -7,7 +7,13 @@ const prisma = new PrismaClient();
 
 // Type definitions
 interface LeagueStructureByLevel {
-  [level: string]: Array<{ id: number; name: string; season: string }>;
+  [level: string]: Array<{
+    id: number;
+    name: string;
+    season: string;
+    tier: number;
+    divisionType: 'PRO' | 'AMATEUR';
+  }>;
 }
 
 interface LeagueStructureByCountry {
@@ -67,12 +73,12 @@ const handleError = (res: Response, error: unknown, errorKey: string, language: 
 const validateLeagueId = (id: string, res: Response): { id: number; error?: Response } => {
   const leagueId = parseInt(id, 10);
   if (isNaN(leagueId)) {
-    return { 
-      id: 0, 
-      error: res.status(400).json({ 
+    return {
+      id: 0,
+      error: res.status(400).json({
         success: false,
-        error: 'Invalid league ID' 
-      }) 
+        error: 'Invalid league ID'
+      })
     };
   }
   return { id: leagueId };
@@ -81,22 +87,22 @@ const validateLeagueId = (id: string, res: Response): { id: number; error?: Resp
 // GET /api/leagues/structure
 router.get('/structure', async (_req: Request, res: Response): Promise<Response> => {
   try {
-    // Get all active leagues grouped by country and level
-    const leagues = await prisma.competition.findMany({
-      where: { 
-        isActive: true,
-        type: 'LEAGUE'
+    // Get all active leagues grouped by country and level from the League table
+    // This is important because clubs reference League.id, not Competition.id
+    const leagues = await prisma.league.findMany({
+      where: {
+        isActive: true
       },
       select: {
         id: true,
         name: true,
         country: true,
         level: true,
-        season: true
+        tier: true
       },
       orderBy: [
         { country: 'asc' },
-        { level: 'asc' },
+        { tier: 'asc' },
         { name: 'asc' }
       ]
     });
@@ -105,41 +111,44 @@ router.get('/structure', async (_req: Request, res: Response): Promise<Response>
     const structure = leagues.reduce<LeagueStructureByCountry>((acc, league) => {
       const country = league.country || 'Unknown';
       const level = league.level || 'UNKNOWN';
-      
+
       if (!acc[country]) {
         acc[country] = {};
       }
-      
+
       if (!acc[country][level]) {
         acc[country][level] = [];
       }
-      
+
       acc[country][level].push({
         id: league.id,
         name: league.name,
-        season: league.season
+        season: '2026/2027', // Default season since League table doesn't have season field
+        tier: league.tier,
+        divisionType: league.tier <= 2 ? 'PRO' : 'AMATEUR'
       });
-      
+
       return acc;
     }, {});
 
     return res.json(structure);
   } catch (error) {
     console.error('Error fetching league structure:', error);
-    return res.status(500).json({ 
+    return res.status(500).json({
       error: 'Failed to fetch league structure',
       message: error instanceof Error ? error.message : 'Unknown error'
     });
   }
 });
 
+
 // GET /api/leagues
 router.get('/', async (req: Request, res: Response): Promise<Response> => {
   const language = getLanguage(req as TypedRequest<unknown>);
-  
+
   try {
     const { country, level, season } = req.query;
-    
+
     // Build the base where clause with required fields
     const where: {
       type: 'LEAGUE';
@@ -151,12 +160,12 @@ router.get('/', async (req: Request, res: Response): Promise<Response> => {
       type: 'LEAGUE',
       isActive: true
     };
-    
+
     // Add optional filters with type checking
     if (country && typeof country === 'string') {
       where.country = { contains: country, mode: 'insensitive' };
     }
-    
+
     if (level) {
       // Ensure the level is a valid LeagueLevel enum value
       const validLevels = new Set(Object.values(LeagueLevel));
@@ -164,18 +173,18 @@ router.get('/', async (req: Request, res: Response): Promise<Response> => {
         where.level = level as LeagueLevel;
       }
     }
-    
+
     if (season && typeof season === 'string') {
       where.season = season;
     }
-    
+
     const leagues = await prisma.competition.findMany({
       where,
       include: {
         teams: true
       }
     });
-    
+
     return res.json({ success: true, data: leagues });
   } catch (error) {
     return handleError(res, error, 'error.failed_to_fetch_leagues', language);
@@ -185,7 +194,7 @@ router.get('/', async (req: Request, res: Response): Promise<Response> => {
 // POST /api/leagues
 router.post('/', async (req: TypedRequest<CreateLeagueInput>, res: Response): Promise<Response> => {
   const language = getLanguage(req);
-  
+
   try {
     // Create league using the service
     const league = await leagueService.createLeague({
@@ -196,7 +205,7 @@ router.post('/', async (req: TypedRequest<CreateLeagueInput>, res: Response): Pr
       type: req.body.type,
       isActive: req.body.isActive ?? true
     });
-    
+
     return res.status(201).json({ success: true, data: league });
   } catch (error) {
     return handleError(res, error, 'error.failed_to_create_league', language);
@@ -206,7 +215,7 @@ router.post('/', async (req: TypedRequest<CreateLeagueInput>, res: Response): Pr
 // GET /api/leagues with filters
 router.get('/filter', async (req: TypedRequest<unknown>, res: Response): Promise<Response> => {
   const language = getLanguage(req);
-  
+
   try {
     const { country, level, season } = req.query;
     // Build the where clause with proper typing for Prisma
@@ -217,14 +226,14 @@ router.get('/filter', async (req: TypedRequest<unknown>, res: Response): Promise
       ...(level && { level: level as LeagueLevel }),
       ...(season && { season: season as string })
     };
-    
+
     const leagues = await prisma.competition.findMany({
       where,
       include: {
         teams: true
       }
     });
-    
+
     return res.json({ success: true, data: leagues });
   } catch (error) {
     return handleError(res, error, 'error.failed_to_fetch_leagues', language);
@@ -236,7 +245,7 @@ router.get('/:id', async (req: Request, res: Response): Promise<Response> => {
   const language = getLanguage(req as TypedRequest<unknown>);
   const { id, error: idError } = validateLeagueId(req.params.id, res);
   if (idError) return idError;
-  
+
   try {
     const league = await prisma.competition.findUnique({
       where: { id: Number(id), type: 'LEAGUE' },
@@ -252,14 +261,14 @@ router.get('/:id', async (req: Request, res: Response): Promise<Response> => {
         fixtures: true
       }
     });
-    
+
     if (!league) {
-      return res.status(404).json({ 
+      return res.status(404).json({
         success: false,
-        error: t('error.league_not_found', language) 
+        error: t('error.league_not_found', language)
       });
     }
-    
+
     return res.json({ success: true, data: league });
   } catch (error) {
     return handleError(res, error, 'error.failed_to_fetch_league', language);
@@ -271,18 +280,18 @@ router.get('/:id/table', async (req: Request, res: Response): Promise<Response> 
   const language = getLanguage(req as TypedRequest<unknown>);
   const { id, error: idError } = validateLeagueId(req.params.id, res);
   if (idError) return idError;
-  
+
   try {
     const season = req.query.season as string || new Date().getFullYear().toString();
     const standings = await leagueService.getLeagueStandings(Number(id), season);
-    
+
     if (!standings) {
-      return res.status(404).json({ 
+      return res.status(404).json({
         success: false,
-        error: t('error.league_table_not_found', language) 
+        error: t('error.league_table_not_found', language)
       });
     }
-    
+
     return res.json({ success: true, data: standings });
   } catch (error) {
     return handleError(res, error, 'error.failed_to_fetch_league_table', language);
@@ -294,16 +303,16 @@ router.put('/:id', async (req: TypedRequest<UpdateLeagueInput>, res: Response): 
   const language = getLanguage(req);
   const { id, error: idError } = validateLeagueId(req.params.id, res);
   if (idError) return idError;
-  
+
   try {
     const league = await leagueService.getLeagueById(id);
     if (!league) {
-      return res.status(404).json({ 
-        success: false, 
-        error: t('error.league_not_found', language) 
+      return res.status(404).json({
+        success: false,
+        error: t('error.league_not_found', language)
       });
     }
-    
+
     const updatedLeague = await leagueService.updateLeague(id, {
       name: req.body.name ?? league.name,
       country: req.body.country ?? league.country,
@@ -312,7 +321,7 @@ router.put('/:id', async (req: TypedRequest<UpdateLeagueInput>, res: Response): 
       type: req.body.type ?? league.type,
       isActive: req.body.isActive ?? league.isActive
     });
-    
+
     return res.json({ success: true, data: updatedLeague });
   } catch (error) {
     return handleError(res, error, 'error.failed_to_update_league', language);
@@ -324,20 +333,20 @@ router.delete('/:id', async (req: Request, res: Response): Promise<Response> => 
   const language = getLanguage(req as TypedRequest<unknown>);
   const { id, error: idError } = validateLeagueId(req.params.id, res);
   if (idError) return idError;
-  
+
   try {
     const league = await leagueService.getLeagueById(id);
     if (!league) {
-      return res.status(404).json({ 
-        success: false, 
-        error: t('error.league_not_found', language) 
+      return res.status(404).json({
+        success: false,
+        error: t('error.league_not_found', language)
       });
     }
-    
+
     await leagueService.deleteLeague(id);
-    return res.json({ 
-      success: true, 
-      message: t('success.league_deleted', language) 
+    return res.json({
+      success: true,
+      message: t('success.league_deleted', language)
     });
   } catch (error) {
     return handleError(res, error, 'error.failed_to_delete_league', language);
@@ -349,7 +358,7 @@ router.post('/:id/register-club', async (req: Request, res: Response): Promise<R
   const language = getLanguage(req as TypedRequest<RegisterClubInput>);
   const { id, error: idError } = validateLeagueId(req.params.id, res);
   if (idError) return idError;
-  
+
   try {
     const { clubId, season } = req.body as RegisterClubInput;
     const result = await leagueService.registerClubForLeague(Number(clubId), Number(id), season);
@@ -364,7 +373,7 @@ router.get('/:id/standings', async (req: Request, res: Response): Promise<Respon
   const language = getLanguage(req as TypedRequest<unknown>);
   const { id, error: idError } = validateLeagueId(req.params.id, res);
   if (idError) return idError;
-  
+
   try {
     const season = req.query.season as string || new Date().getFullYear().toString();
     const standings = await leagueService.getLeagueStandings(Number(id), season);
@@ -379,31 +388,31 @@ router.get('/:id/fixtures', async (req: Request, res: Response): Promise<Respons
   const language = getLanguage(req as TypedRequest<unknown>);
   const { id, error: idError } = validateLeagueId(req.params.id, res);
   if (idError) return idError;
-  
+
   try {
     const season = req.query.season as string || new Date().getFullYear().toString();
     const matchday = req.query.matchday as string | undefined;
-    
+
     const fixtures = await leagueService.getLeagueFixtures(Number(id), season);
-    
+
     if (!fixtures) {
       return res.status(404).json({
         success: false,
         error: t('error.fixtures_not_found', language)
       });
     }
-    
+
     // Filter by matchday if provided
-    const filteredFixtures = matchday 
+    const filteredFixtures = matchday
       ? fixtures.fixtures.filter(f => f.matchDay === parseInt(matchday, 10))
       : fixtures.fixtures;
-    
-    return res.json({ 
-      success: true, 
+
+    return res.json({
+      success: true,
       data: {
         ...fixtures,
         fixtures: filteredFixtures
-      } 
+      }
     });
   } catch (error) {
     return handleError(res, error, 'error.failed_to_fetch_fixtures', language);
@@ -415,7 +424,7 @@ router.get('/:id/statistics', async (req: Request, res: Response): Promise<Respo
   const language = getLanguage(req as TypedRequest<unknown>);
   const { id, error: idError } = validateLeagueId(req.params.id, res);
   if (idError) return idError;
-  
+
   try {
     const statistics = await leagueService.getLeagueStatistics(Number(id));
     return res.json({ success: true, data: statistics });
@@ -429,7 +438,7 @@ router.get('/:id/history', async (req: Request, res: Response): Promise<Response
   const language = getLanguage(req as TypedRequest<unknown>);
   const { id, error: idError } = validateLeagueId(req.params.id, res);
   if (idError) return idError;
-  
+
   try {
     const history = await leagueService.getLeagueHistory(Number(id));
     return res.json({ success: true, data: history });
@@ -443,17 +452,17 @@ router.get('/:id/rankings', async (req: Request, res: Response): Promise<Respons
   const language = getLanguage(req as TypedRequest<unknown>);
   const { id, error: idError } = validateLeagueId(req.params.id, res);
   if (idError) return idError;
-  
+
   try {
     // Check if league exists
     const league = await leagueService.getLeagueById(id);
     if (!league) {
-      return res.status(404).json({ 
-        success: false, 
-        error: t('error.league_not_found', language) 
+      return res.status(404).json({
+        success: false,
+        error: t('error.league_not_found', language)
       });
     }
-    
+
     const season = req.query.season as string || new Date().getFullYear().toString();
     const rankings = await leagueService.getLeagueStandings(id, season);
     return res.json({ success: true, data: rankings });
@@ -465,7 +474,7 @@ router.get('/:id/rankings', async (req: Request, res: Response): Promise<Respons
 // GET /api/leagues/cup-competitions
 router.get('/cup-competitions', async (req: Request, res: Response): Promise<Response> => {
   const language = getLanguage(req as TypedRequest<unknown>);
-  
+
   try {
     const cups = await leagueService.getCupCompetitions();
     return res.json({ success: true, data: cups });
@@ -477,19 +486,19 @@ router.get('/cup-competitions', async (req: Request, res: Response): Promise<Res
 // GET /api/cup-competitions/:id/fixtures
 router.get('/cup-competitions/:id/fixtures', async (req: TypedRequest<unknown>, res: Response): Promise<Response> => {
   const language = getLanguage(req);
-  
+
   try {
     const { id, error: idError } = validateLeagueId(req.params.id, res);
     if (idError) return idError;
-    
+
     const cupFixtures = await leagueService.getCupFixtures(id);
     return res.json({ success: true, data: cupFixtures });
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     if (errorMessage === 'Cup competition not found') {
-      return res.status(404).json({ 
+      return res.status(404).json({
         success: false,
-        error: t('error.cup_competition_not_found', language) 
+        error: t('error.cup_competition_not_found', language)
       });
     }
     return handleError(res, error, 'error.failed_to_fetch_cup_fixtures', language);

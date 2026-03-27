@@ -45,16 +45,24 @@ function getNationality(index: number, total: number): string {
   return pool.country;
 }
 
-function getName(nationality: string): string {
+function getNameParts(nationality: string): { firstName: string, lastName: string } {
+  let first = '';
+  let last = '';
   if (nationality === 'Netherlands') {
-    return `${getRandomFrom(dutchFirstNames)} ${getRandomFrom(dutchLastNames)}`;
+    first = getRandomFrom(dutchFirstNames);
+    last = getRandomFrom(dutchLastNames);
+  } else {
+    const pool = foreignPools.find(p => p.country === nationality);
+    if (pool) {
+      first = getRandomFrom(pool.first);
+      last = getRandomFrom(pool.last);
+    } else {
+      // fallback
+      first = getRandomFrom(dutchFirstNames);
+      last = getRandomFrom(dutchLastNames);
+    }
   }
-  const pool = foreignPools.find(p => p.country === nationality);
-  if (pool) {
-    return `${getRandomFrom(pool.first)} ${getRandomFrom(pool.last)}`;
-  }
-  // fallback
-  return `${getRandomFrom(dutchFirstNames)} ${getRandomFrom(dutchLastNames)}`;
+  return { firstName: first, lastName: last };
 }
 
 function getRandomPersonality(): 'LAZY' | 'BELOW_AVERAGE' | 'PROFESSIONAL' | 'DRIVEN' | 'NATURAL' {
@@ -73,7 +81,7 @@ export async function generatePlayersForClub(prisma: PrismaClient, clubId: numbe
     for (let i = 0; i < count; i++) {
       if (playerIndex >= squadSize) break;
       const nationality = getNationality(playerIndex, squadSize);
-      const name = getName(nationality);
+      const { firstName, lastName } = getNameParts(nationality);
       const age = options.o21 ? getRandomInt(16, 21) : getRandomInt(18, 34);
       // Skill: O21 (45-75), others (50-90, with some variance)
       const skill = options.o21
@@ -83,34 +91,25 @@ export async function generatePlayersForClub(prisma: PrismaClient, clubId: numbe
       const wage = options.o21 ? getRandomInt(500, 2000) : getRandomInt(1500, 10000);
       const contractExpiry = new Date();
       contractExpiry.setFullYear(contractExpiry.getFullYear() + getRandomInt(1, 4));
-      // Skill improvement chance by age
-      let improvementChance = 0.01;
-      if (age >= 16 && age <= 22) improvementChance = 0.25;
-      else if (age >= 23 && age <= 28) improvementChance = 0.10;
-      else if (age >= 29 && age <= 32) improvementChance = 0.05;
-      // 33+ stays at 0.01
-      const talent = getRandomInt(0, 100);
+
       const personality = getRandomPersonality();
       await prisma.player.create({
         data: {
-          name,
-          clubId,
+          firstName,
+          lastName,
+          currentClubId: clubId,
           position: pos,
-          skill,
+          currentAbility: skill,
+          potentialAbility: skill + getRandomInt(0, 10),
           age,
+          dateOfBirth: new Date(new Date().getFullYear() - age, 0, 1),
           nationality,
           morale,
-          injured: false,
-          internationalCaps: 0,
-          onInternationalDuty: false,
-          wage,
-          contractExpiry,
+          weeklyWage: Number(wage),
+          contractEnd: contractExpiry,
           contractStart: new Date(),
-          improvementChance,
-          talent,
-          personality,
-          potential: skill + getRandomInt(0, 10),
-          currentPotential: skill
+          personalityType: personality,
+          preferredPositions: JSON.stringify([pos]),
         }
       });
       playerIndex++;
@@ -119,7 +118,7 @@ export async function generatePlayersForClub(prisma: PrismaClient, clubId: numbe
   // Fill up to 25 if needed
   while (playerIndex < squadSize) {
     const nationality = getNationality(playerIndex, squadSize);
-    const name = getName(nationality);
+    const { firstName, lastName } = getNameParts(nationality);
     const pos = getRandomFrom(['DEF', 'MID', 'FWD']);
     const age = options.o21 ? getRandomInt(16, 21) : getRandomInt(18, 34);
     const skill = options.o21
@@ -129,34 +128,27 @@ export async function generatePlayersForClub(prisma: PrismaClient, clubId: numbe
     const wage = options.o21 ? getRandomInt(500, 2000) : getRandomInt(1500, 10000);
     const contractExpiry = new Date();
     contractExpiry.setFullYear(contractExpiry.getFullYear() + getRandomInt(1, 4));
-    let improvementChance = 0.01;
-    if (age >= 16 && age <= 22) improvementChance = 0.25;
-    else if (age >= 23 && age <= 28) improvementChance = 0.10;
-    else if (age >= 29 && age <= 32) improvementChance = 0.05;
-    const talent = getRandomInt(0, 100);
+
     const personality = getRandomPersonality();
     await prisma.player.create({
       data: {
-        name,
-        clubId,
+        firstName,
+        lastName,
+        currentClubId: clubId,
         position: pos,
-        skill,
+        currentAbility: skill,
+        potentialAbility: skill + getRandomInt(0, 10),
         age,
+        dateOfBirth: new Date(new Date().getFullYear() - age, 0, 1),
         nationality,
         morale,
-        injured: false,
-        internationalCaps: 0,
-        onInternationalDuty: false,
-        wage,
-        contractExpiry,
+        weeklyWage: Number(wage),
+        contractEnd: contractExpiry,
         contractStart: new Date(),
-        improvementChance,
-        talent,
-        personality,
-        potential: skill + getRandomInt(0, 10),
-        currentPotential: skill
+        personalityType: personality,
+        preferredPositions: JSON.stringify([pos]),
       }
     });
     playerIndex++;
   }
-} 
+}

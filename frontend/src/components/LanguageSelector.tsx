@@ -49,12 +49,12 @@ export default function LanguageSelector({ onChange }: { onChange?: (lang: strin
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 6, minWidth: 210 }}>
-      <label htmlFor="lang-select" style={{ fontWeight: 600, marginBottom: 4, fontSize: '1rem', color: '#333' }}>
+      <label htmlFor="lang-select" style={{ fontWeight: 600, marginBottom: 4, fontSize: '1rem', color: '#a7f3d0', textShadow: '0 0 10px rgba(74, 222, 128, 0.3)' }}>
         🌐 Language
       </label>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 2 }}>
-        <span style={{ fontSize: 24, marginRight: 2 }}>{current.flag}</span>
-        <span style={{ fontWeight: 600, fontSize: '1.08rem', color: '#222', letterSpacing: 0.5 }}>{current.label}</span>
+        <span style={{ fontSize: 24, marginRight: 2, filter: 'drop-shadow(0 0 4px rgba(255,255,255,0.5))' }}>{current.flag}</span>
+        <span style={{ fontWeight: 600, fontSize: '1.08rem', color: '#fff', letterSpacing: 0.5 }}>{current.label}</span>
       </div>
       <div style={{ position: 'relative', width: '100%' }}>
         <select
@@ -65,26 +65,32 @@ export default function LanguageSelector({ onChange }: { onChange?: (lang: strin
             fontSize: '1.1rem',
             padding: '0.5rem 2.5rem 0.5rem 1.5rem',
             borderRadius: 14,
-            border: '2px solid #b5b5b5',
-            background: 'rgba(255,255,255,0.7)',
-            boxShadow: '0 4px 24px 0 rgba(31, 38, 135, 0.07)',
+            border: '1.5px solid rgba(255,255,255,0.2)',
+            background: 'rgba(0,0,0,0.3)',
+            boxShadow: '0 4px 24px 0 rgba(0, 0, 0, 0.2)',
             minWidth: 180,
             fontFamily: 'inherit',
             appearance: 'none',
             cursor: 'pointer',
             outline: 'none',
-            transition: 'border 0.25s, box-shadow 0.25s',
+            transition: 'border 0.25s, box-shadow 0.25s, background 0.25s',
             backdropFilter: 'blur(4px)',
             WebkitBackdropFilter: 'blur(4px)',
-            color: '#222',
+            color: '#fff',
             fontWeight: 500,
           }}
-          onFocus={e => (e.target.style.border = '2px solid #4ade80')}
-          onBlur={e => (e.target.style.border = '2px solid #b5b5b5')}
+          onFocus={e => {
+            e.target.style.border = '1.5px solid #4ade80';
+            e.target.style.background = 'rgba(0,0,0,0.5)';
+          }}
+          onBlur={e => {
+            e.target.style.border = '1.5px solid rgba(255,255,255,0.2)';
+            e.target.style.background = 'rgba(0,0,0,0.3)';
+          }}
           aria-label="Select language"
         >
           {LANGUAGES.map(l => (
-            <option key={l.code} value={l.code} style={{ fontSize: '1.1rem' }}>
+            <option key={l.code} value={l.code} style={{ fontSize: '1.1rem', color: '#333' }}>
               {l.flag} {l.label}
             </option>
           ))}
@@ -96,7 +102,7 @@ export default function LanguageSelector({ onChange }: { onChange?: (lang: strin
           top: '50%',
           transform: 'translateY(-50%)',
           pointerEvents: 'none',
-          fontSize: 18,
+          fontSize: 14,
           color: '#4ade80',
           textShadow: '0 2px 8px #22d3ee33',
         }}>

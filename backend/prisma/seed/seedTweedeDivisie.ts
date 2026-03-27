@@ -6,17 +6,16 @@ export async function seedTweedeDivisie(prisma: PrismaClient) {
   const tweedeDivisie = await prisma.league.create({
     data: {
       name: 'Tweede Divisie',
-      tier: 'TWEEDE_DIVISIE',
-      season: '2024-2025',
+      tier: 3, level: 'Tweede Divisie',
     },
   });
 
   // Tweede Divisie clubs
   const tweedeDivisieClubs = [
-    { name: 'VV Noordwijk', homeCity: 'Noordwijk', boardExpectation: 'Avoid relegation', morale: 50, form: 'LDLWL', regionTag: 'West 2' },
-    { name: 'Jong Sparta Rotterdam', homeCity: 'Rotterdam', boardExpectation: 'Avoid relegation', morale: 48, form: 'LLDLL', regionTag: 'West 2' },
-    { name: 'SVV Scheveningen', homeCity: 'Scheveningen', boardExpectation: 'Avoid relegation', morale: 45, form: 'DLWLL', regionTag: 'West 2' },
-    { name: 'ADO \'20', homeCity: 'Heemskerk', boardExpectation: 'Avoid relegation', morale: 42, form: 'LDLWL', regionTag: 'West 1' }
+    { name: 'VV Noordwijk', city: 'Noordwijk', boardExpectation: 'Avoid relegation', morale: 50, form: 'LDLWL',  },
+    { name: 'Jong Sparta Rotterdam', city: 'Rotterdam', boardExpectation: 'Avoid relegation', morale: 48, form: 'LLDLL',  },
+    { name: 'SVV Scheveningen', city: 'Scheveningen', boardExpectation: 'Avoid relegation', morale: 45, form: 'DLWLL',  },
+    { name: 'ADO \'20', city: 'Heemskerk', boardExpectation: 'Avoid relegation', morale: 42, form: 'LDLWL',  }
   ];
 
   for (const clubData of tweedeDivisieClubs) {

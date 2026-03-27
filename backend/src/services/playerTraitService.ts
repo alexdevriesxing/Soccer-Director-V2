@@ -1,23 +1,33 @@
-// Player Trait Service
-import { PrismaClient } from '@prisma/client';
-const prisma = new PrismaClient();
+// Player Trait Service - Stubbed
+// Stub in-memory store
+const traitsStore = new Map<number, any[]>();
 
-// Assign a trait to a player
-export const assignTrait = async (playerId: number, trait: string) => {
-  return prisma.playerTrait.create({
-    data: { playerId, trait, revealed: false }
-  });
+export const PlayerTraitService = {
+  getPlayerTraits: async (playerId: number) => {
+    return traitsStore.get(playerId) || [];
+  },
+
+  assignTrait: async (playerId: number, trait: string) => {
+    const traits = traitsStore.get(playerId) || [];
+    const newTrait = { id: Date.now(), playerId, trait, revealed: false };
+    traits.push(newTrait);
+    traitsStore.set(playerId, traits);
+    return newTrait;
+  },
+
+  revealTrait: async (traitId: number) => {
+    // In-memory update
+    for (const traits of traitsStore.values()) {
+      const trait = traits.find(t => t.id === traitId);
+      if (trait) {
+        trait.revealed = true;
+        return trait;
+      }
+    }
+    throw new Error('Trait not found');
+  }
 };
 
-// Reveal a trait for a player
-export const revealTrait = async (traitId: number) => {
-  return prisma.playerTrait.update({
-    where: { id: traitId },
-    data: { revealed: true }
-  });
-};
-
-// Fetch all traits for a player
-export const getTraitsForPlayer = async (playerId: number) => {
-  return prisma.playerTrait.findMany({ where: { playerId } });
-}; 
+export const getTraitsForPlayer = PlayerTraitService.getPlayerTraits;
+export const assignTrait = PlayerTraitService.assignTrait;
+export const revealTrait = PlayerTraitService.revealTrait;

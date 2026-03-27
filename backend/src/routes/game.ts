@@ -16,7 +16,8 @@ router.get('/club/:clubId', async (req, res) => {
     });
 
     if (!club) {
-      return res.status(404).json({ error: 'Club not found' });
+      res.status(404).json({ error: 'Club not found' });
+      return;
     }
 
     res.json(club);
@@ -27,7 +28,7 @@ router.get('/club/:clubId', async (req, res) => {
 
 // Get squad management data (deprecated)
 router.get('/club/:clubId/squad', async (_req, res) => {
-  return res.status(410).json({
+  res.status(410).json({
     error: 'Deprecated endpoint',
     message: 'Use competition/clubs endpoints aligned with the updated competition-based schema.'
   });
@@ -35,16 +36,16 @@ router.get('/club/:clubId/squad', async (_req, res) => {
 
 // Get upcoming fixtures (paginated)
 // Query params: page (default 1), limit (default 25)
-router.get('/club/:clubId/fixtures', async (req, res) => {
-  return res.status(410).json({
+router.get('/club/:clubId/fixtures', async (_req, res) => {
+  res.status(410).json({
     error: 'Deprecated endpoint',
     message: 'Use competition-based schedules/rounds endpoints aligned with the updated schema.'
   });
 });
 
 // Simulate a match
-router.post('/fixture/:fixtureId/simulate', async (req, res) => {
-  return res.status(410).json({
+router.post('/fixture/:fixtureId/simulate', async (_req, res) => {
+  res.status(410).json({
     error: 'Deprecated endpoint',
     message: 'Use competition-based match/round simulation endpoints aligned with the updated schema.'
   });
@@ -53,7 +54,7 @@ router.post('/fixture/:fixtureId/simulate', async (req, res) => {
 // Get transfer market (paginated)
 // Query params: page (default 1), limit (default 25)
 router.get('/transfers/market', async (_req, res) => {
-  return res.status(410).json({
+  res.status(410).json({
     error: 'Deprecated endpoint',
     message: 'Use new transfer listings/offers endpoints aligned with the updated schema.'
   });
@@ -61,7 +62,7 @@ router.get('/transfers/market', async (_req, res) => {
 
 // Create transfer offer
 router.post('/transfers/offer', async (_req, res) => {
-  return res.status(410).json({
+  res.status(410).json({
     error: 'Deprecated endpoint',
     message: 'Use new transfer offers endpoint aligned with the updated schema.'
   });
@@ -69,7 +70,7 @@ router.post('/transfers/offer', async (_req, res) => {
 
 // Respond to transfer offer
 router.post('/transfers/:offerId/respond', async (_req, res) => {
-  return res.status(410).json({
+  res.status(410).json({
     error: 'Deprecated endpoint',
     message: 'Use new transfer offers endpoint aligned with the updated schema.'
   });
@@ -78,7 +79,7 @@ router.post('/transfers/:offerId/respond', async (_req, res) => {
 // Get transfer offers for club (paginated)
 // Query params: page (default 1), limit (default 25)
 router.get('/club/:clubId/transfers', async (_req, res) => {
-  return res.status(410).json({
+  res.status(410).json({
     error: 'Deprecated endpoint',
     message: 'Use new transfer listings/offers endpoints aligned with the updated schema.'
   });
@@ -89,15 +90,16 @@ router.post('/player/:playerId/training', async (req, res) => {
   try {
     const playerId = parseInt(req.params.playerId);
     const { clubId, focus, isExtra } = req.body;
-    
+
+    // Stub implementation
     const trainingFocus = await TrainingService.setTrainingFocus({
       playerId,
       clubId,
       focus,
-      isExtra,
+      isExtra: !!isExtra, // Ensure boolean
       startDate: new Date()
     });
-    
+
     res.json(trainingFocus);
   } catch (error) {
     res.status(500).json({ error: 'Failed to set training focus' });
@@ -109,7 +111,7 @@ router.post('/club/:clubId/training', async (req, res) => {
   try {
     const clubId = parseInt(req.params.clubId);
     const { sessionType } = req.body;
-    
+
     const results = await TrainingService.conductTrainingSession(clubId, sessionType);
     res.json(results);
   } catch (error) {
@@ -124,22 +126,20 @@ router.get('/player/:playerId/training', async (req, res) => {
     const playerId = parseInt(req.params.playerId);
     const player = await prisma.player.findUnique({ where: { id: playerId } });
     if (!player) {
-      return res.status(404).json({ error: 'Player not found' });
+      res.status(404).json({ error: 'Player not found' });
+      return;
     }
-    if (typeof player.currentClubId !== 'number') {
-      return res.status(400).json({ error: 'Player does not belong to a club' });
-    }
-    const progress = await TrainingService.getTrainingResults(player.currentClubId);
-    res.json(progress);
+
+    // Stub
+    res.json({ focus: player.trainingFocus, level: player.trainingLevel });
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch training progress' });
   }
 });
 
 // End training focus
-router.delete('/player/:playerId/training', async (req, res) => {
+router.delete('/player/:playerId/training', async (_req, res) => {
   try {
-    const playerId = parseInt(req.params.playerId);
     // await TrainingService.setTrainingFocus(playerId, null, null, null);
     res.json({ message: 'Training focus ended' });
   } catch (error) {
@@ -150,14 +150,14 @@ router.delete('/player/:playerId/training', async (req, res) => {
 // --- Club-wide training focus endpoints ---
 // Get club training focus
 router.get('/club/:clubId/training-focus', async (_req, res) => {
-  return res.status(410).json({
+  res.status(410).json({
     error: 'Deprecated endpoint',
     message: 'Use competition-based training endpoints aligned with the updated schema.'
   });
 });
 // Set club training focus
 router.post('/club/:clubId/training-focus', async (_req, res) => {
-  return res.status(410).json({
+  res.status(410).json({
     error: 'Deprecated endpoint',
     message: 'Use competition-based training endpoints aligned with the updated schema.'
   });
@@ -166,15 +166,15 @@ router.post('/club/:clubId/training-focus', async (_req, res) => {
 // Get league table (paginated)
 // Query params: page (default 1), limit (default 25)
 router.get('/league/:leagueId/table', async (_req, res) => {
-  return res.status(410).json({
+  res.status(410).json({
     error: 'Deprecated endpoint',
     message: 'Use competition standings endpoints aligned with the updated schema.'
   });
 });
 
 // Get match events
-router.get('/fixture/:fixtureId/events', async (req, res) => {
-  return res.status(410).json({
+router.get('/fixture/:fixtureId/events', async (_req, res) => {
+  res.status(410).json({
     error: 'Deprecated endpoint',
     message: 'Use competition-based event/statistics endpoints aligned with the updated schema.'
   });
@@ -182,7 +182,7 @@ router.get('/fixture/:fixtureId/events', async (req, res) => {
 
 // Get club finances
 router.get('/club/:clubId/finances', async (_req, res) => {
-  return res.status(410).json({
+  res.status(410).json({
     error: 'Deprecated endpoint',
     message: 'Use competition/club finance endpoints aligned with the updated schema.'
   });
@@ -200,15 +200,12 @@ router.get('/player/:playerId', async (req, res) => {
     });
 
     if (!player) {
-      return res.status(404).json({ error: 'Player not found' });
+      res.status(404).json({ error: 'Player not found' });
+      return;
     }
-
-    // Get transfer history
-    // const transferHistory = await TransferService.getPlayerTransferHistory(playerId);
 
     res.json({
       player,
-      // transferHistory
     });
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch player details' });
@@ -221,13 +218,15 @@ router.patch('/player/:playerId/contract', async (req, res) => {
     const playerId = parseInt(req.params.playerId);
     const { wage, contractExpiry } = req.body;
     if (wage !== undefined && (typeof wage !== 'number' || wage < 0)) {
-      return res.status(400).json({ error: 'Invalid wage' });
+      res.status(400).json({ error: 'Invalid wage' });
+      return;
     }
     let expiryDate: Date | undefined = undefined;
     if (contractExpiry) {
       expiryDate = new Date(contractExpiry);
       if (isNaN(expiryDate.getTime())) {
-        return res.status(400).json({ error: 'Invalid contract expiry date' });
+        res.status(400).json({ error: 'Invalid contract expiry date' });
+        return;
       }
     }
     const player = await prisma.player.update({
@@ -244,9 +243,8 @@ router.patch('/player/:playerId/contract', async (req, res) => {
 });
 
 // Get news feed
-router.get('/news', async (req, res) => {
+router.get('/schedule', async (_req, res) => {
   try {
-    // Mock news feed - in a real implementation this would come from a news service
     const news = [
       {
         id: 1,
@@ -254,20 +252,6 @@ router.get('/news', async (req, res) => {
         content: 'Clubs are making final moves in the transfer market as deadline day looms.',
         date: new Date(),
         type: 'transfer'
-      },
-      {
-        id: 2,
-        title: 'Injury Crisis Hits Top Club',
-        content: 'Several key players are sidelined with injuries, affecting team performance.',
-        date: new Date(),
-        type: 'injury'
-      },
-      {
-        id: 3,
-        title: 'Young Talent Emerges',
-        content: 'A promising young player has been called up to the first team.',
-        date: new Date(),
-        type: 'youth'
       }
     ];
 
@@ -293,8 +277,8 @@ router.get('/stats', async (_req, res) => {
 });
 
 // Trigger weekly simulation
-router.post('/simulate/week/:weekNumber', async (req, res) => {
-  return res.status(410).json({
+router.post('/simulate/week/:weekNumber', async (_req, res) => {
+  res.status(410).json({
     error: 'Deprecated endpoint',
     message: 'Use competition-based round simulation endpoints aligned with the updated schema.'
   });
@@ -302,16 +286,16 @@ router.post('/simulate/week/:weekNumber', async (req, res) => {
 
 // --- Season Progression Endpoints ---
 // Advance one week: simulate all matches for the current week, update tables, and return summary
-router.post('/season/advance-week', async (req, res) => {
-  return res.status(410).json({
+router.post('/season/advance-week', async (_req, res) => {
+  res.status(410).json({
     error: 'Deprecated endpoint',
     message: 'Use competition-based season progression via rounds in the updated schema.'
   });
 });
 
 // Advance to end of season: simulate all remaining weeks, trigger end-of-season logic, and return summary
-router.post('/season/advance-to-end', async (req, res) => {
-  return res.status(410).json({
+router.post('/season/advance-to-end', async (_req, res) => {
+  res.status(410).json({
     error: 'Deprecated endpoint',
     message: 'Use competition-based season progression endpoints aligned with the updated schema.'
   });
@@ -319,7 +303,7 @@ router.post('/season/advance-to-end', async (req, res) => {
 
 // Get best XI for a club
 router.get('/club/:clubId/best-xi', async (_req, res) => {
-  return res.status(410).json({
+  res.status(410).json({
     error: 'Deprecated endpoint',
     message: 'Use competition-based squad selection endpoints aligned with the updated schema.'
   });
@@ -327,7 +311,7 @@ router.get('/club/:clubId/best-xi', async (_req, res) => {
 
 // Set starting XI for a club
 router.post('/club/:clubId/starting-xi', async (_req, res) => {
-  return res.status(410).json({
+  res.status(410).json({
     error: 'Deprecated endpoint',
     message: 'Use competition-based squad selection endpoints aligned with the updated schema.'
   });
@@ -335,26 +319,26 @@ router.post('/club/:clubId/starting-xi', async (_req, res) => {
 
 // Get current starting XI for a club
 router.get('/club/:clubId/starting-xi', async (_req, res) => {
-  return res.status(410).json({
+  res.status(410).json({
     error: 'Deprecated endpoint',
     message: 'Use competition-based squad selection endpoints aligned with the updated schema.'
   });
 });
 
 // --- Season Summary Endpoint ---
-router.get('/season/summary', async (req, res) => {
-  return res.status(410).json({
+router.get('/season/summary', async (_req, res) => {
+  res.status(410).json({
     error: 'Deprecated endpoint',
     message: 'Use competition-based season summary endpoints aligned with the updated schema.'
   });
 });
 
 // Attendance analytics endpoint
-router.get('/attendance/analytics', async (req, res) => {
-  return res.status(410).json({
+router.get('/attendance/analytics', async (_req, res) => {
+  res.status(410).json({
     error: 'Deprecated endpoint',
     message: 'Use competition-based analytics endpoints aligned with the updated schema.'
   });
 });
 
-export default router; 
+export default router;

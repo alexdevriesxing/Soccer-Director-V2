@@ -1,114 +1,114 @@
-// Youth Intake Service (stubbed)
-// TODO: Re-implement against competition-based schema. This in-memory stub avoids Prisma schema mismatches.
-import { generateScoutingReport } from './youthScoutingService';
+import { PrismaClient } from '@prisma/client';
 
-type IntakeEvent = { id: number; clubId: number; type: string; year: number };
-let intakeSeq = 1;
-const intakeEvents: IntakeEvent[] = [];
+const prisma = new PrismaClient();
 
-function getRandomInt(min: number, max: number) {
-  return Math.floor(Math.random() * (max - min + 1)) + min;
+export interface IntakeResult {
+  message: string;
+  players: any[];
 }
 
-function randomFromArray<T>(arr: T[]): T {
-  return arr[Math.floor(Math.random() * arr.length)];
-}
+export const generateYouthIntake = async (clubId: number): Promise<IntakeResult> => {
+  // 1. Get Club Facilities
+  const facility = await prisma.clubFacility.findUnique({
+    where: { clubId }
+  });
 
-const positions = ['GK', 'DEF', 'MID', 'FWD'];
-const nationalities = ['Netherlands', 'Germany', 'France', 'England', 'Spain', 'Italy'];
-const firstNames = ['Jan', 'Piet', 'Kees', 'Erik', 'Marco', 'Sven', 'Lars', 'Tom', 'Daan', 'Jens'];
-const lastNames = ['de Jong', 'van Dijk', 'Bakker', 'Visser', 'Smit', 'Meijer', 'de Boer', 'Mulder', 'de Groot', 'Bos'];
+  const academyLevel = facility?.youthAcademy || 5; // Default to 5/20 if not found
+  const youthCoaching = facility?.youthFacilities || 5;
 
-const personalityOptions = [
-  'LAZY',
-  'BELOW_AVERAGE',
-  'PROFESSIONAL',
-  'DRIVEN',
-  'NATURAL'
-];
+  // 2. Determine number of players (random between 5 and 10)
+  const numPlayers = Math.floor(Math.random() * 6) + 5;
+  const newPlayers: any[] = [];
 
-async function generateYouthPlayers(clubId: number, count: number) {
-  // Try to use scouting reports
-  const reports = await generateScoutingReport(clubId);
-  const scoutedProspects = reports.flatMap(r => r.prospects);
-  const players: Array<{
-    id: number;
-    clubId: number;
-    firstName: string;
-    lastName: string;
-    position: string;
-    age: number;
-    skill: number;
-    talent: number;
-    personality: string;
-    nationality: string;
-  }> = [];
-  let playerSeq = 1;
-  for (let i = 0; i < count; i++) {
-    let playerData;
-    if (scoutedProspects.length > 0 && Math.random() < 0.7) {
-      // 70% chance to use a scouted prospect if available
-      const prospect = scoutedProspects.splice(Math.floor(Math.random() * scoutedProspects.length), 1)[0];
-      const [firstName, ...rest] = String(prospect.name).split(' ');
-      const lastName = rest.join(' ') || 'Youth';
-      playerData = {
+  const currentYear = new Date().getFullYear();
+
+  // 3. Generate Players
+  for (let i = 0; i < numPlayers; i++) {
+    // Quality influenced by academy level (1-20)
+    // Base potential = 60 + (AcademyLevel * 5) + Random(-20 to +20)
+    // Max roughly 180 for top academy, Min 40 for poor academy
+
+    // Higher variance for "Golden Generation" chance?
+    const isGem = Math.random() < (academyLevel / 200); // 10% chance at level 20
+
+    const basePA = 60 + (academyLevel * 4);
+    let potentialAbility = basePA + (Math.random() * 40 - 20);
+
+    if (isGem) {
+      potentialAbility = Math.min(195, Math.max(140, potentialAbility + 40));
+    }
+
+    potentialAbility = Math.floor(Math.min(200, Math.max(10, potentialAbility)));
+
+    // Current Ability usually 30-50% of PA for youth
+    // Boost CA slightly if youth coaching is good
+    const coachingBoost = youthCoaching / 100; // 0.05 to 0.2
+    const currentAbility = Math.floor(potentialAbility * (0.25 + coachingBoost + (Math.random() * 0.15)));
+
+    // Attributes - Simplified generation
+    const positions = ['GK', 'DEF', 'MID', 'FWD']; // Simplified for now
+    const position = positions[Math.floor(Math.random() * positions.length)];
+
+    // Names
+    const firstNames = ['Jan', 'Piet', 'Kees', 'Erik', 'Marco', 'Sven', 'Lars', 'Tom', 'Daan', 'Jens'];
+    const lastNames = ['de Jong', 'van Dijk', 'Bakker', 'Visser', 'Smit', 'Meijer', 'de Boer', 'Mulder', 'de Groot', 'Bos'];
+    const firstName = firstNames[Math.floor(Math.random() * firstNames.length)];
+    const lastName = lastNames[Math.floor(Math.random() * lastNames.length)];
+
+    const player = await prisma.player.create({
+      data: {
         firstName,
         lastName,
-        position: prospect.position,
-        age: prospect.age,
-        skill: prospect.skill,
-        talent: prospect.talent,
-        personality: prospect.personality,
-        nationality: prospect.nationality
-      };
-    } else {
-      // Fallback to random
-      const firstName = randomFromArray(firstNames);
-      const lastName = randomFromArray(lastNames);
-      const position = randomFromArray(positions);
-      const age = getRandomInt(15, 18);
-      const skill = getRandomInt(35, 55);
-      const talent = getRandomInt(skill + 10, 90);
-      const personality = randomFromArray(personalityOptions);
-      const nationality = randomFromArray(nationalities);
-      playerData = { firstName, lastName, position, age, skill, talent, personality, nationality };
-    }
-    players.push({
-      id: playerSeq++,
-      clubId,
-      firstName: playerData.firstName,
-      lastName: playerData.lastName,
-      position: playerData.position,
-      age: playerData.age,
-      skill: playerData.skill,
-      talent: playerData.talent,
-      personality: playerData.personality,
-      nationality: playerData.nationality,
+        fullName: `${firstName} ${lastName}`,
+        dateOfBirth: new Date(`${currentYear - 16}-01-01`), // Approx 16 years old
+        age: 16,
+        nationality: 'Netherlands',
+        position,
+        preferredPositions: JSON.stringify([position]),
+        currentClubId: clubId,
+
+        // Abilities
+        currentAbility,
+        potentialAbility,
+
+        // Physical
+        pace: Math.floor(Math.random() * 15) + 1,
+        acceleration: Math.floor(Math.random() * 15) + 1,
+        stamina: Math.floor(Math.random() * 10) + 5,
+        naturalFitness: 10,
+        strength: Math.floor(Math.random() * 10) + 1,
+
+        // Technical
+        finishing: Math.floor(Math.random() * 15) + 1,
+        passing: Math.floor(Math.random() * 15) + 1,
+        tackling: Math.floor(Math.random() * 15) + 1,
+        technique: Math.floor(Math.random() * 15) + 1,
+
+        // Mental
+        determination: Math.floor(Math.random() * 20) + 1,
+        workRate: Math.floor(Math.random() * 20) + 1,
+
+        // Goalkeeping (low if not GK)
+        reflexes: position === 'GK' ? Math.floor(Math.random() * 15) + 5 : 1,
+
+        contractStart: new Date(),
+        contractEnd: new Date(`${currentYear + 2}-06-30`), // 2 year youth contract
+        weeklyWage: 100, // standard youth wage
+
+        value: currentAbility * 1000 // Simple value formula
+      }
     });
+
+    newPlayers.push(player);
   }
-  return players;
-}
 
-export const triggerIntakeEvent = async (clubId: number, type: string, year: number) => {
-  const event: IntakeEvent = { id: intakeSeq++, clubId, type, year };
-  intakeEvents.push(event);
-  const newPlayers = await generateYouthPlayers(clubId, 5);
-  return { event, newPlayers };
+  return {
+    message: `Generated ${newPlayers.length} youth players for intake`,
+    players: newPlayers
+  };
 };
 
-export const getIntakeHistory = async (clubId: number) => {
-  return intakeEvents.filter(e => e.clubId === clubId).sort((a, b) => b.year - a.year);
-};
-
-// Automation logic placeholder
 export const automateIntake = async (clubId: number) => {
-  const year = new Date().getFullYear();
-  const existing = intakeEvents.find(e => e.clubId === clubId && e.year === year);
-  if (!existing) {
-    const event: IntakeEvent = { id: intakeSeq++, clubId, year, type: 'auto' };
-    intakeEvents.push(event);
-    await generateYouthPlayers(clubId, 5);
-    return { event, generated: 5 };
-  }
-  return { event: existing, generated: 0 };
+  // Wrapper for automation
+  return generateYouthIntake(clubId);
 };

@@ -1,5 +1,7 @@
 import { PrismaClient } from '@prisma/client';
-const prisma = new PrismaClient();
+
+// Keep for standalone testing
+let prisma: PrismaClient;
 
 // Helper: Board expectation by position
 function getBoardExpectation(position: number, total: number): string {
@@ -22,7 +24,8 @@ function getMorale(position: number, total: number): number {
 }
 
 // Helper: Kit colors (use defaults, can be customized per club)
-function getKitColors(name: string) {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function getKitColors(_name: string) {
   // TODO: Add real kit colors if available
   return {
     homeKitShirt: '#ff6b6b',
@@ -41,52 +44,48 @@ function getHomeCity(name: string): string {
   return match ? match[1] : '';
 }
 
-async function createLeagueWithClubs({ name, division, region, clubs }: { name: string; division: string; region: string; clubs: any[] }) {
+async function createLeagueWithClubs(prismaClient: PrismaClient, { name, division, region: _region, clubs }: { name: string; division: string; region: string; clubs: any[] }) {
   // Prisma upsert requires a unique constraint. We'll use findFirst + create if not found.
-  let league = await prisma.league.findFirst({
+  let league = await prismaClient.league.findFirst({
     where: {
       name,
-      division,
-      region,
-      season: '2024/2025',
+      level: division,
+      // division, region, season removed as they don't exist in League model
     },
   });
   if (!league) {
-    league = await prisma.league.create({
+    league = await prismaClient.league.create({
       data: {
         name,
-        division,
-        region,
-        tier: 'AMATEUR',
-        season: '2024/2025',
+        level: division,
+        tier: 5,
+        // region: 'West 1',
+        // season: '2026/2027',
       },
     });
   }
   for (let i = 0; i < clubs.length; i++) {
     const c = clubs[i];
     const kit = getKitColors(c.name);
-    await prisma.club.create({
+    await prismaClient.club.create({
       data: {
         name: c.name,
-        homeCity: c.homeCity || getHomeCity(c.name),
+        city: c.city || getHomeCity(c.name),
         boardExpectation: c.boardExpectation || getBoardExpectation(i + 1, clubs.length),
         morale: getMorale(i + 1, clubs.length),
-        regionTag: 'Zaterdag West 2',
-        homeKitShirt: kit.homeKitShirt,
-        homeKitShorts: kit.homeKitShorts,
-        homeKitSocks: kit.homeKitSocks,
-        awayKitShirt: kit.awayKitShirt,
-        awayKitShorts: kit.awayKitShorts,
-        awayKitSocks: kit.awayKitSocks,
+        primaryColor: kit.homeKitShirt,
+        secondaryColor: kit.awayKitShirt,
+        // regionTag removed
+        // kit fields mapped to primary/secondary colors
         leagueId: league.id,
       },
     });
   }
 }
 
-export async function seedZaterdagWest2(prisma: PrismaClient) {
+export async function seedZaterdagWest2(prismaClient: PrismaClient) {
   // Example for Tweede Klasse C
-  await createLeagueWithClubs({
+  await createLeagueWithClubs(prismaClient, {
     name: 'Zaterdag West 2 Tweede Klasse C',
     division: 'Tweede Klasse',
     region: 'Zaterdag West 2',
@@ -112,6 +111,7 @@ export async function seedZaterdagWest2(prisma: PrismaClient) {
 }
 
 if (require.main === module) {
+  prisma = new PrismaClient();
   seedZaterdagWest2(prisma).then(() => {
     console.log('✅ Zaterdag West 2 seeded!');
     process.exit(0);

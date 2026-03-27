@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
+import LiveMatchViewer from '../components/LiveMatchViewer';
 
 const MatchPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -11,6 +12,7 @@ const MatchPage: React.FC = () => {
   const [analysis, setAnalysis] = useState<any>(null);
   const [analysisLoading, setAnalysisLoading] = useState(false);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<'overview' | 'live' | 'analysis'>('overview');
 
   const fetchAnalysis = async () => {
     setAnalysisLoading(true);
@@ -65,78 +67,96 @@ const MatchPage: React.FC = () => {
     }
   };
 
+  const startLiveMatch = async () => {
+    try {
+      await fetch(`/api/match-management/${id}/start`, { method: 'POST' });
+      setViewMode('live');
+    } catch (e) {
+      console.error(e);
+      alert('Failed to start live match');
+    }
+  };
+
   if (loading) return <div>Loading...</div>;
-  if (error) return <div style={{color: 'red'}}>{error}</div>;
+  if (error) return <div style={{ color: 'red' }}>{error}</div>;
   if (!fixture) return <div>Fixture not found.</div>;
 
   return (
-    <div>
-      <h1>Match: {fixture.homeClub?.name} vs {fixture.awayClub?.name}</h1>
-      <div>Date: {fixture.date ? new Date(fixture.date).toLocaleString() : '-'}</div>
-      <div>Venue: {fixture.venue ?? '-'}</div>
-      <div>Attendance: {typeof fixture.attendance === 'number' ? fixture.attendance : '-'}</div>
-      <div style={{margin: '16px 0'}}>
-        <button onClick={handleSimulate} disabled={simLoading || !!simResult}>
-          {simLoading ? 'Simulating...' : simResult ? 'Match Simulated' : 'Simulate Match'}
+    <div style={{ padding: '20px' }}>
+      <h1>{fixture.homeClub?.name} vs {fixture.awayClub?.name}</h1>
+
+      {/* Match Header Info */}
+      <div style={{ marginBottom: '20px', padding: '10px', background: '#f5f5f5', borderRadius: '8px' }}>
+        <div>Date: {fixture.date ? new Date(fixture.date).toLocaleString() : '-'}</div>
+        <div>Venue: {fixture.venue ?? '-'}</div>
+      </div>
+
+      {/* Navigation Tabs */}
+      <div style={{ marginBottom: '20px', display: 'flex', gap: '10px' }}>
+        <button
+          onClick={() => setViewMode('overview')}
+          style={{ fontWeight: viewMode === 'overview' ? 'bold' : 'normal' }}
+        >
+          Overview
+        </button>
+        <button
+          onClick={() => setViewMode('live')}
+          style={{ fontWeight: viewMode === 'live' ? 'bold' : 'normal' }}
+        >
+          Live Match View
+        </button>
+        <button
+          onClick={() => setViewMode('analysis')}
+          disabled={!simResult && !analysis}
+          style={{ fontWeight: viewMode === 'analysis' ? 'bold' : 'normal' }}
+        >
+          Post-Match Analysis
         </button>
       </div>
-      {simResult && (
-        <div style={{margin: '16px 0'}}>
-          <h2>Result</h2>
-          <div><strong>{fixture.homeClub?.name}</strong> {simResult.homeGoals} - {simResult.awayGoals} <strong>{fixture.awayClub?.name}</strong></div>
-          <div>Possession: {simResult.homePossession}% / {simResult.awayPossession}%</div>
-          <div>Shots: {simResult.homeShots} / {simResult.awayShots}</div>
-          <div>On Target: {simResult.homeShotsOnTarget} / {simResult.awayShotsOnTarget}</div>
-          <div>Corners: {simResult.homeCorners} / {simResult.awayCorners}</div>
-          <div>Fouls: {simResult.homeFouls} / {simResult.awayFouls}</div>
-          <div>Yellow Cards: {simResult.homeYellowCards} / {simResult.awayYellowCards}</div>
-          <div>Red Cards: {simResult.homeRedCards} / {simResult.awayRedCards}</div>
-          <h3>Event Log</h3>
-          <table>
-            <thead>
-              <tr>
-                <th>Min</th>
-                <th>Type</th>
-                <th>Description</th>
-                <th>Player</th>
-                <th>Club</th>
-              </tr>
-            </thead>
-            <tbody>
-              {simResult.events.map((ev: any, idx: number) => (
-                <tr key={idx}>
-                  <td>{ev.minute}</td>
-                  <td>{ev.type}</td>
-                  <td>{ev.description}</td>
-                  <td>{ev.playerName ?? '-'}</td>
-                  <td>{ev.clubId ?? '-'}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          {/* Post-match analysis */}
-          <div style={{marginTop: 24}}>
-            <h3>Post-Match Analysis</h3>
-            {analysisLoading && <div>Loading analysis...</div>}
-            {analysisError && <div style={{color: 'red'}}>{analysisError}</div>}
-            {analysis && (
-              <div>
-                <div><b>xG:</b> {fixture.homeClub?.name}: {analysis.xg.home.toFixed(2)} | {fixture.awayClub?.name}: {analysis.xg.away.toFixed(2)}</div>
-                <div style={{margin: '8px 0'}}><b>Player Ratings:</b>
-                  <ul>
-                    {Object.entries(analysis.playerRatings).map(([pid, rating]: any) => (
-                      <li key={pid}>Player {pid}: {rating.toFixed(2)}</li>
-                    ))}
-                  </ul>
-                </div>
-                <div><b>Heatmap:</b> <span style={{color: '#888'}}>(visualization coming soon)</span></div>
-              </div>
-            )}
+
+      {/* Content Area */}
+      {viewMode === 'live' ? (
+        <LiveMatchViewer fixtureId={Number(id)} />
+      ) : viewMode === 'analysis' ? (
+        <div style={{ marginTop: 24 }}>
+          <h3>Post-Match Analysis</h3>
+          {/* Analysis content reused from original */}
+          {analysisLoading && <div>Loading analysis...</div>}
+          {analysisError && <div style={{ color: 'red' }}>{analysisError}</div>}
+          {analysis && (
+            <div>
+              <div><b>xG:</b> {fixture.homeClub?.name}: {analysis.xg.home.toFixed(2)} | {fixture.awayClub?.name}: {analysis.xg.away.toFixed(2)}</div>
+              {/* Other analysis details */}
+            </div>
+          )}
+        </div>
+      ) : (
+        /* Overview Mode (Default) */
+        <div>
+          <div style={{ margin: '16px 0', display: 'flex', gap: '10px' }}>
+            <button onClick={handleSimulate} disabled={simLoading || !!simResult}>
+              {simLoading ? 'Simulating...' : simResult ? 'View Result' : 'Instant Simulate'}
+            </button>
+            <button
+              onClick={startLiveMatch}
+              style={{ backgroundColor: '#4CAF50', color: 'white' }}
+            >
+              Start Live Match
+            </button>
           </div>
+
+          {/* Result Display if available */}
+          {simResult && (
+            <div style={{ margin: '16px 0' }}>
+              <h2>Result</h2>
+              <div><strong>{fixture.homeClub?.name}</strong> {simResult.homeGoals} - {simResult.awayGoals} <strong>{fixture.awayClub?.name}</strong></div>
+              {/* Stats table */}
+            </div>
+          )}
         </div>
       )}
     </div>
   );
 };
 
-export default MatchPage; 
+export default MatchPage;
