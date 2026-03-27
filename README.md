@@ -71,6 +71,29 @@ If the local save database has grown too large during long dev sessions, compact
 npm --prefix backend run compact:v2:saves
 ```
 
+## Deployment
+
+The production path is a single container: the frontend is built with Create React App, served by the Express backend, and the SQLite database is initialized on first boot.
+
+Build and run locally with Docker Compose:
+
+```bash
+mkdir -p deploy/data
+docker compose -f docker-compose.prod.yml up --build
+```
+
+The app will be available on `http://localhost:4000`.
+
+Important deployment notes:
+
+- Persistent game data lives in `./deploy/data/dev.db` via the mounted `/persist` volume.
+- Set `FRONTEND_URL` to your public origin in production so CORS and Socket.IO use the right host.
+- The container seeds the database on first boot if no SQLite file exists yet.
+
+The repo also publishes a container image to GitHub Container Registry on every push to `main`:
+
+- Image: `ghcr.io/alexdevriesxing/soccer-director-v2:latest`
+
 ## Recent V2 Cleanup
 
 - Reduced the main frontend production bundle from about 624 kB gzipped to about 90.71 kB gzipped by removing global icon-pack bootstrap.

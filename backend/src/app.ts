@@ -230,8 +230,10 @@ app.get('/health', (_req: any, res: Response) => {
 
 // Serve frontend in production
 if (process.env.NODE_ENV === 'production') {
+    const frontendBuildDir = path.join(__dirname, '../../frontend/build');
+    app.use(express.static(frontendBuildDir));
     app.get('*', (_req: any, res: Response) => {
-        res.sendFile(path.join(__dirname, '../../frontend/build', 'index.html'));
+        res.sendFile(path.join(frontendBuildDir, 'index.html'));
     });
 }
 
