@@ -1,111 +1,90 @@
-# Dutch Football Manager
+# Soccer Director V2
 
-A comprehensive football management simulation game set in the Dutch football pyramid, from Eredivisie to Vijfde Klasse, including O21 leagues. Manage your club, develop players, handle transfers, and compete in realistic match simulations. Built with React, TypeScript, Node.js, Prisma, Phaser.js, and Three.js.
+Soccer Director V2 is the validated release line for the management-game route set in this project. The shipping surface is the V2 flow, not the older legacy routes that still exist elsewhere in the codebase.
 
-## 📄 Documentation
-- [GDD.md](./GDD.md) — Full Game Design Document
-- [ROADMAP.md](./ROADMAP.md) — Step-by-step plan and task list
-- [rules.md](./rules.md) — Coding and architectural rules
+## Status
 
-## 🚀 Getting Started
+- Release-candidate validation passed on 2026-03-27.
+- Browser smoke passed for the default path and the lower-tier rollover scenario with zero console errors and zero page errors.
+- The week-advance benchmark passed within the current SLA.
 
-### Prerequisites
-- Node.js 18+
-- npm or yarn
-- Git
+## Shipping Surface
 
-### Installation
+The V2 release path currently covers:
 
-1. **Clone the repository**
-   ```bash
-   git clone <repository-url>
-   cd football-management-game
-   ```
-2. **Install backend dependencies**
-   ```bash
-   cd backend
-   npm install
-   ```
-3. **Set up the database**
-   ```bash
-   npx prisma generate
-   npx prisma migrate dev
-   npx prisma db seed
-   ```
-4. **Install frontend dependencies**
-   ```bash
-   cd ../frontend
-   npm install
-   ```
-5. **Start the development servers**
-   - Backend: `cd ../backend && npm run dev`
-   - Frontend: `cd ../frontend && npm start`
+- `/new-career`
+- `/hq`
+- `/club-pulse`
+- `/week-planner`
+- `/inbox`
+- `/match-center/:matchId`
+- `/post-match/:matchId`
+- `/standings`
+- `/career-squad`
+- `/career-finances`
+- `/save-load`
 
-## 🎮 Features
-- Full Dutch league pyramid, O21 leagues, and real promotion/relegation rules
-- Realistic player model with 15+ attributes, morale, fitness, and history
-- 2D match scenes for key events (Phaser.js)
-- Complete club, staff, transfer, and financial management
-- European and international competitions
-- Robust error handling and test coverage
+Scope and acceptance details live in [V2_RELEASE_PLAN.md](./V2_RELEASE_PLAN.md). Ongoing release notes and verification history are tracked in [progress.md](./progress.md).
 
-See [GDD.md](./GDD.md) for full details. 
+## Stack
 
-# Jong Team Management System
+- Frontend: React 19, TypeScript, Create React App
+- Backend: Node.js, Express, Prisma
+- Validation: Jest, Playwright
+- Data: SQLite via Prisma for local development
 
-## Features
-- Full CRUD for Jong teams and staff (admin only)
-- Player movement between Jong and first team (individual, bulk, auto-promotion/demotion)
-- Staff management (add/edit/delete coaches, physios)
-- Analytics dashboard (player development, staff impact, squad performance)
-- Finances UI (budgets, wages, parent club impact)
-- Notifications (promotion eligibility, expiring contracts, injuries)
-- In-app help modal and tooltips for all advanced features
-- Robust error handling and admin gating (scaffolded for real auth)
-- Deep simulation integration: Jong team staff/finances affect player development and injury risk
+## Quick Start
 
-## Admin UI Usage
-- Access Jong Team Management from the admin panel
-- Use CRUD controls to create, edit, or delete Jong teams and staff
-- Move players between squads individually or in bulk
-- Use auto-promotion/demotion for eligible players
-- View analytics, finances, and notifications via dedicated buttons (with tooltips)
-- Use the help button (❓) for in-app guidance
+Recommended runtime: Node.js 20.
 
-## Simulation Integration
-- Jong team coach skill boosts player skill gain
-- Physio skill reduces injury risk
-- Wage budget acts as a multiplier for development
-- All logic is applied automatically during weekly simulation for all clubs, including Jong teams
+```bash
+git clone https://github.com/alexdevriesxing/Soccer-Director-V2.git
+cd Soccer-Director-V2
+npm ci
+npm ci --prefix backend
+npm ci --prefix frontend
+npx --prefix backend prisma generate --schema backend/prisma/schema.prisma
+npx --prefix backend prisma db push --schema backend/prisma/schema.prisma
+npm --prefix backend run seed
+npm run dev
+```
 
-## API Endpoints (Summary)
-- `POST /api/jong-team/:parentClubId` — Create Jong team
-- `PATCH /api/jong-team/:jongTeamId` — Edit Jong team
-- `DELETE /api/jong-team/:jongTeamId` — Delete Jong team
-- `POST /api/jong-team/:jongTeamId/add-player/:playerId` — Move player to Jong team
-- `POST /api/jong-team/:parentClubId/promote-player/:playerId` — Promote player to first team
-- `POST /api/jong-team/:jongTeamId/add-players` — Bulk move to Jong team
-- `POST /api/jong-team/:parentClubId/promote-players` — Bulk promote to first team
-- `POST /api/jong-team/:jongTeamId/auto-promote` — Auto-promote eligible players
-- `POST /api/jong-team/:parentClubId/auto-demote` — Auto-demote eligible players
-- `POST /api/jong-team/:jongTeamId/staff` — Add staff
-- `PATCH /api/jong-team/:jongTeamId/staff/:staffId` — Edit staff
-- `DELETE /api/jong-team/:jongTeamId/staff/:staffId` — Delete staff
-- `GET /api/jong-team/:jongTeamId/analytics` — Analytics dashboard
-- `GET /api/jong-team/:jongTeamId/finances` — Finances
-- `PATCH /api/jong-team/:jongTeamId/finances` — Edit budgets
-- `GET /api/jong-team/:jongTeamId/notifications` — Notifications
+The frontend runs on `http://localhost:3000` and the V2 backend health endpoint is `http://localhost:4000/api/v2/health`.
 
-## Testing Instructions
-- **Backend:**
-  - Run `npm test` in the backend directory to execute all endpoint and logic tests
-- **Frontend:**
-  - Run `npm test` in the frontend directory to execute all UI and logic tests
+## Validation Commands
 
-## Extending or Maintaining
-- All features are modular and admin-gated
-- To add new analytics, finances, or notifications, extend the relevant backend endpoints and update the frontend UI
-- For real authentication, replace the admin gating scaffolding with your auth provider
+Run the release gate without browser automation:
 
----
-For further details, see the in-app help modal or review the code in `backend/src/routes/jongTeam.ts` and `frontend/src/components/JongTeamManagement.tsx`. 
+```bash
+npm run check:v2:release-candidate
+```
+
+Run the full release gate including browser smoke:
+
+```bash
+npm run check:v2:release-candidate:browser
+```
+
+If the local save database has grown too large during long dev sessions, compact stored snapshots with:
+
+```bash
+npm --prefix backend run compact:v2:saves
+```
+
+## Recent V2 Cleanup
+
+- Reduced the main frontend production bundle from about 624 kB gzipped to about 90.71 kB gzipped by removing global icon-pack bootstrap.
+- Compacted persisted V2 save snapshots, reducing the local dev database from about 1.6 GB to about 902 MB in the current test environment.
+- Cleared the remaining browser-smoke console noise so the release reports now end cleanly.
+
+## Repository Layout
+
+- [`frontend/`](./frontend/) contains the React client, including the V2 route set in `frontend/src/v2`.
+- [`backend/`](./backend/) contains the Express server, Prisma schema, browser smoke scripts, and the V2 simulation logic.
+- [`scripts/`](./scripts/) contains the root release-check entrypoints.
+- [`output/`](./output/) contains generated benchmark and smoke-test artifacts.
+
+## Notes
+
+- Legacy routes remain in the repo for historical continuity, but they are not the release path unless the release plan explicitly says otherwise.
+- This repository is intended to be the clean V2 line. The older `Soccer-Director-2025` repository remains separate because its `main` branch is a divergent code line.

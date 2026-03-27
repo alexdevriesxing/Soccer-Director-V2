@@ -1,0 +1,71 @@
+name: V2 Browser Smoke
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "backend/**"
+      - "frontend/**"
+      - "scripts/**"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/v2-browser-smoke.yml"
+  workflow_dispatch:
+
+jobs:
+  browser-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      CI: true
+      TMPDIR: ${{ github.workspace }}/.tmp/jest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: |
+            package-lock.json
+            backend/package-lock.json
+            frontend/package-lock.json
+
+      - name: Prepare temp directories
+        run: mkdir -p .tmp/jest logs output/v2-browser-e2e output/v2-benchmarks
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Install backend dependencies
+        run: npm ci --prefix backend
+
+      - name: Install frontend dependencies
+        run: npm ci --prefix frontend
+
+      - name: Install Playwright browser
+        run: npx --prefix backend playwright install --with-deps chromium
+
+      - name: Prepare database
+        run: |
+          npx --prefix backend prisma generate --schema backend/prisma/schema.prisma
+          npx --prefix backend prisma db push --schema backend/prisma/schema.prisma
+          npm --prefix backend run seed
+
+      - name: Run full V2 browser release gate
+        run: npm run check:v2:release-candidate:browser
+
+      - name: Upload browser artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v2-browser-smoke-artifacts
+          path: |
+            logs/
+            output/v2-browser-e2e/
+            output/v2-benchmarks/
+          if-no-files-found: ignore
