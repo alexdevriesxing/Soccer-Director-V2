@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import HierarchicalLeagueSelector from '../components/HierarchicalLeagueSelector';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faFutbol } from '@fortawesome/free-solid-svg-icons';
+import { faFutbol, faUser } from '@fortawesome/free-solid-svg-icons';
 
 interface CategoryGroup {
   name: string;
@@ -21,6 +21,7 @@ interface Club {
   reputation?: number;
   finances?: string;
   stadium?: string;
+  isJongTeam?: boolean;
 }
 
 const ProfileCreationPage: React.FC = () => {
@@ -39,25 +40,31 @@ const ProfileCreationPage: React.FC = () => {
   // Transform backend league data to the format expected by HierarchicalLeagueSelector
   const transformLeagueData = (data: any): CategoryGroup[] => {
     const categories: CategoryGroup[] = [];
-    
+
     // Add Professional Leagues category
     const professionalLeagues: CategoryGroup = {
       name: 'Professional Leagues',
       type: 'category',
       children: []
     };
-    
+
     // Add Amateur Leagues category
     const amateurLeagues: CategoryGroup = {
       name: 'Amateur Leagues',
       type: 'category',
       children: []
     };
-    
+
     // Process each country
     Object.entries(data).forEach(([country, leaguesByLevel]) => {
-      const countryData = leaguesByLevel as Record<string, Array<{id: number, name: string, season: string}>>;
-      
+      const countryData = leaguesByLevel as Record<string, Array<{
+        id: number;
+        name: string;
+        season: string;
+        tier?: number;
+        divisionType?: 'PRO' | 'AMATEUR';
+      }>>;
+
       Object.entries(countryData).forEach(([level, leagues]) => {
         leagues.forEach(league => {
           const leagueData = {
@@ -70,9 +77,18 @@ const ProfileCreationPage: React.FC = () => {
             clubsCount: 18, // Default value, can be updated if needed
             type: 'league'
           };
-          
-          // Add to appropriate category based on level
-          if (level === 'EREDIVISIE' || level === 'KKD') {
+
+          const normalizedLevel = level.trim().toLowerCase();
+          const inferredPro =
+            league.divisionType === 'PRO' ||
+            league.tier === 1 ||
+            league.tier === 2 ||
+            normalizedLevel.includes('eredivisie') ||
+            normalizedLevel.includes('eerste divisie') ||
+            normalizedLevel.includes('kkd');
+
+          // Add to appropriate category based on tier/division type.
+          if (inferredPro) {
             professionalLeagues.children.push(leagueData);
           } else {
             amateurLeagues.children.push(leagueData);
@@ -80,11 +96,11 @@ const ProfileCreationPage: React.FC = () => {
         });
       });
     });
-    
+
     // Only add categories that have leagues
     if (professionalLeagues.children.length > 0) categories.push(professionalLeagues);
     if (amateurLeagues.children.length > 0) categories.push(amateurLeagues);
-    
+
     return categories;
   };
 
@@ -113,7 +129,9 @@ const ProfileCreationPage: React.FC = () => {
     fetch(`/api/clubs?leagueId=${selectedLeague}`)
       .then(res => res.json())
       .then(data => {
-        setClubs(data.clubs || []);
+        // Handle both wrapped {clubs: [...]} and direct array response formats
+        const clubsArray = Array.isArray(data) ? data : (data.clubs || []);
+        setClubs(clubsArray);
         setSelectedClubId(null);
         setClubDetails(null);
       })
@@ -248,7 +266,7 @@ const ProfileCreationPage: React.FC = () => {
       `}</style>
       <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1 }}>
         <div style={glassCard}>
-          <h1 style={pageTitle}><FontAwesomeIcon icon="user" style={{ fontSize: 32, color: '#4ade80', filter: 'drop-shadow(0 0 6px #22d3ee)' }} />Create Manager Profile</h1>
+          <h1 style={pageTitle}><FontAwesomeIcon icon={faUser} style={{ fontSize: 32, color: '#4ade80', filter: 'drop-shadow(0 0 6px #22d3ee)' }} />Create Manager Profile</h1>
           {error && <div style={{ color: '#f87171', marginBottom: 16, textAlign: 'center', fontWeight: 600 }}>{error}</div>}
           <div style={{ marginBottom: 22, width: '100%' }}>
             <label style={{ display: 'block', fontWeight: 600, marginBottom: 6, fontSize: '1rem', color: '#a7f3d0' }}>Manager Name</label>
@@ -292,7 +310,14 @@ const ProfileCreationPage: React.FC = () => {
                 >
                   <option value="">Select a club...</option>
                   {clubs.map(club => (
-                    <option key={club.id} value={club.id}>{club.name}</option>
+                    <option
+                      key={club.id}
+                      value={club.id}
+                      disabled={club.isJongTeam}
+                      style={{ color: club.isJongTeam ? '#6b7280' : undefined }}
+                    >
+                      {club.name}{club.isJongTeam ? ' (Reserve Team)' : ''}
+                    </option>
                   ))}
                 </select>
               )}

@@ -3,36 +3,50 @@
   "version": "1.0.0",
   "main": "dist/server.js",
   "scripts": {
-    "dev": "npm run build && npm run start",
+    "dev": "ts-node --transpile-only src/server.ts",
     "dev:minimal": "nodemon --exec ts-node src/minimal-server.ts",
     "dev:js": "nodemon dist/server.js",
     "build": "tsc -p tsconfig.minimal.json",
-    "start": "node dist/minimal/minimal-server.js",
+    "start": "node dist/server.js",
     "start:minimal": "node dist/minimal/minimal-server.js",
-    "start:js": "node dist/minimal/minimal-server.js",
+    "start:js": "node dist/server.js",
     "prisma": "prisma",
-    "test": "jest",
+    "test": "jest --runInBand",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
     "test:unit": "jest src/__tests__/unit",
     "test:integration": "jest src/__tests__/integration",
     "test:e2e": "jest src/__tests__/e2e",
+    "test:v2:e2e:browser": "node scripts/v2BrowserE2E.js",
+    "test:v2:e2e:browser:headed": "V2_E2E_HEADLESS=false node scripts/v2BrowserE2E.js",
+    "test:v2:e2e:browser:lower-tier-rollover": "V2_E2E_SCENARIO=lower-tier-rollover node scripts/v2BrowserE2E.js",
+    "test:v2:e2e:browser:all": "npm run test:v2:e2e:browser && npm run test:v2:e2e:browser:lower-tier-rollover",
+    "telemetry:v2:guided": "ts-node scripts/v2GuidedMatchTelemetry.ts --samples 300",
+    "benchmark:v2:week": "ts-node scripts/v2WeekAdvanceBenchmark.ts --samples 8 --warmup 1 --max-median-ms 5000 --max-p95-ms 9000 --output ../output/v2-benchmarks/week-advance.json",
+    "compact:v2:saves": "ts-node scripts/v2CompactSaveSlots.ts",
     "seed:clubs": "ts-node prisma/seedClubs.ts",
-    "seed": "npm run seed:clubs",
-    "gen:squads": "ts-node scripts/generateSquads.ts --source clubdata.md --out data/Players.synthetic.md --season 2025-2026",
+    "seed:clubs:dry": "ts-node prisma/seedClubs.ts --dry-run",
+    "seed:clubs:refresh": "ts-node prisma/seedClubs.ts --refresh",
+    "seed:dev-squads": "ts-node prisma/seedDevSquads.ts --min 22",
+    "seed:dev-squads:dry": "ts-node prisma/seedDevSquads.ts --min 22 --dry-run --limit 25",
+    "seed": "npm run seed:clubs && npm run seed:dev-squads",
+    "gen:squads": "ts-node scripts/generateSquads.ts --source clubdata.md --out data/Players.synthetic.md --season 2026-2027",
     "gen:europe-clubs": "ts-node scripts/createEuropeanClubset.ts --count 500 --out european_clubdata.md",
-    "gen:europe-squads": "ts-node scripts/generateSquads.ts --source european_clubdata.md --out data/Players.europe.synthetic.md --season 2025-2026",
+    "gen:europe-squads": "ts-node scripts/generateSquads.ts --source european_clubdata.md --out data/Players.europe.synthetic.md --season 2026-2027",
     "gen:uefa-clubs": "ts-node scripts/createUEFAPlaceholderClubs.ts --count 500 --out uefa_clubdata.md",
-    "gen:uefa-squads": "ts-node scripts/generateSquads.ts --source uefa_clubdata.md --out data/Players.uefa.synthetic.md --season 2025-2026",
+    "gen:uefa-squads": "ts-node scripts/generateSquads.ts --source uefa_clubdata.md --out data/Players.uefa.synthetic.md --season 2026-2027",
     "gen:fifa-clubs": "ts-node scripts/createFIFAPlaceholderClubs.ts --count 600 --out fifa_clubdata.md",
-    "gen:fifa-squads": "ts-node scripts/generateSquads.ts --source fifa_clubdata.md --out data/Players.fifa.synthetic.md --season 2025-2026",
-    "build:full": "tsc"
+    "gen:fifa-squads": "ts-node scripts/generateSquads.ts --source fifa_clubdata.md --out data/Players.fifa.synthetic.md --season 2026-2027",
+    "build:full": "tsc",
+    "check:v2": "npm run build:full && npm test -- test/v2-loop.test.ts",
+    "check:v2:ci": "npm run seed && npm run check:v2"
   },
   "prisma": {
     "seed": "ts-node prisma/seed.ts"
   },
   "dependencies": {
     "@prisma/client": "6.9.0",
+    "@types/ws": "^8.18.1",
     "axios": "^1.10.0",
     "compression": "^1.8.1",
     "cors": "^2.8.5",
@@ -42,9 +56,11 @@
     "express-validator": "^7.2.1",
     "helmet": "^8.1.0",
     "morgan": "^1.10.1",
+    "socket.io": "^4.8.1",
     "uuid": "^11.1.0",
     "winston": "^3.17.0",
-    "winston-daily-rotate-file": "^5.0.0"
+    "winston-daily-rotate-file": "^5.0.0",
+    "ws": "^8.18.3"
   },
   "devDependencies": {
     "@faker-js/faker": "^8.4.1",
@@ -56,7 +72,7 @@
     "@types/jest": "^30.0.0",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/morgan": "^1.9.10",
-    "@types/node": "^20.19.10",
+    "@types/node": "^20.19.11",
     "@types/socket.io": "^3.0.1",
     "@types/supertest": "^6.0.3",
     "@types/uuid": "^10.0.0",
@@ -70,6 +86,7 @@
     "jest": "^29.7.0",
     "jest-extended": "^4.0.2",
     "nodemon": "^3.0.3",
+    "playwright": "^1.58.2",
     "prettier": "^3.1.1",
     "prisma": "^6.9.0",
     "supertest": "^6.3.3",
@@ -84,7 +101,14 @@
       "**/?(*.)+(spec|test).[jt]s?(x)"
     ],
     "testPathIgnorePatterns": [
-      "/dist/"
+      "/dist/",
+      "/node_modules/",
+      "/frontend/",
+      "\\.tsx$"
+    ],
+    "modulePathIgnorePatterns": [
+      "/dist/",
+      "/frontend/"
     ]
   }
 }
