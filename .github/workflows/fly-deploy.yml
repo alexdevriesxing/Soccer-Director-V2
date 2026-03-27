@@ -1,0 +1,36 @@
+name: Fly Deploy
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "backend/**"
+      - "frontend/**"
+      - "scripts/**"
+      - "Dockerfile"
+      - "fly.toml"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/fly-deploy.yml"
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    if: ${{ vars.FLY_APP_NAME != '' && secrets.FLY_API_TOKEN != '' }}
+    runs-on: ubuntu-latest
+    concurrency: fly-production
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup flyctl
+        uses: superfly/flyctl-actions/setup-flyctl@master
+
+      - name: Deploy to Fly.io
+        run: flyctl deploy --remote-only --config fly.toml --app "${{ vars.FLY_APP_NAME }}"
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}

@@ -88,11 +88,38 @@ Important deployment notes:
 
 - Persistent game data lives in `./deploy/data/dev.db` via the mounted `/persist` volume.
 - Set `FRONTEND_URL` to your public origin in production so CORS and Socket.IO use the right host.
+- Set `JWT_SECRET` in production instead of relying on the development fallback.
 - The container seeds the database on first boot if no SQLite file exists yet.
 
 The repo also publishes a container image to GitHub Container Registry on every push to `main`:
 
 - Image: `ghcr.io/alexdevriesxing/soccer-director-v2:latest`
+
+### Fly.io
+
+The repo is also wired for Fly.io in [`fly.toml`](./fly.toml) and [`.github/workflows/fly-deploy.yml`](./.github/workflows/fly-deploy.yml).
+
+Recommended production shape:
+
+- one Fly Machine
+- one persistent volume mounted at `/persist`
+- no horizontal scaling while SQLite remains the live database
+
+Quick start:
+
+```bash
+flyctl apps create <app-name>
+flyctl volumes create soccer_director_data --app <app-name> --region ams --size 5
+flyctl secrets set FRONTEND_URL="https://<app-name>.fly.dev" JWT_SECRET="$(openssl rand -hex 32)" --app <app-name>
+flyctl deploy --remote-only --config fly.toml --app <app-name>
+```
+
+For CI deployment from GitHub Actions, add:
+
+- secret: `FLY_API_TOKEN`
+- variable: `FLY_APP_NAME`
+
+Detailed Fly instructions live in [`deploy/fly/README.md`](./deploy/fly/README.md).
 
 ## Recent V2 Cleanup
 
